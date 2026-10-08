@@ -1,0 +1,178 @@
+.episode-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.episode-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.episode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.episode-card {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 14px;
+}
+
+.episode-card.active {
+  border-color: #5b9cff;
+}
+
+.episode-thumbnail {
+  width: 90px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #18222d;
+  border-radius: 10px;
+  font-size: 28px;
+}
+
+.episode-info {
+  min-width: 0;
+}
+
+.episode-info h3 {
+  margin: 0 0 5px;
+  font-size: 15px;
+}
+
+.episode-info p {
+  margin: 0 0 5px;
+  color: #8996a5;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.episode-meta {
+  color: #667586;
+  font-size: 11px;
+}
+
+.episode-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.episode-actions button {
+  padding: 8px 10px;
+  border: 1px solid #2a3744;
+  border-radius: 8px;
+  background: #18222d;
+  color: #fff;
+  cursor: pointer;
+}
+
+.episode-actions button:hover {
+  background: #243240;
+}
+
+.episode-actions .danger-btn {
+  color: #ff7777;
+  border-color: #633333;
+}
+
+.episode-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 14px;
+}
+
+.episode-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.episode-field label {
+  color: #8996a5;
+  font-size: 12px;
+}
+
+.episode-field input,
+.episode-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #2a3744;
+  border-radius: 9px;
+  background: #0d141b;
+  color: #fff;
+  outline: none;
+  resize: vertical;
+}
+
+.episode-field input:focus,
+.episode-field textarea:focus {
+  border-color: #5b9cff;
+}
+
+.episode-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.episode-stat {
+  padding: 14px;
+  text-align: center;
+  background: #18222d;
+  border-radius: 10px;
+}
+
+.episode-stat strong {
+  display: block;
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.episode-stat span {
+  color: #8996a5;
+  font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .episode-card {
+    grid-template-columns: 64px 1fr;
+  }
+
+  .episode-thumbnail {
+    width: 64px;
+    height: 52px;
+    font-size: 22px;
+  }
+
+  .episode-actions {
+    grid-column: 1 / -1;
+  }
+
+  .episode-actions button {
+    flex: 1;
+  }
+
+  .episode-stats {
+    grid-template-columns: 1fr;
+  }
+}
