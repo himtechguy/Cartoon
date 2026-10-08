@@ -1,0 +1,145 @@
+.camera-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 14px;
+}
+
+.camera-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.camera-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.camera-field label {
+  color: #8996a5;
+  font-size: 12px;
+}
+
+.camera-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #2a3744;
+  border-radius: 8px;
+  background: #0d141b;
+  color: #fff;
+  outline: none;
+}
+
+.camera-field input:focus {
+  border-color: #5b9cff;
+}
+
+.camera-presets {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.camera-preset {
+  padding: 8px 11px;
+  border: 1px solid #2a3744;
+  border-radius: 8px;
+  background: #18222d;
+  color: #fff;
+  cursor: pointer;
+}
+
+.camera-preset.active {
+  border-color: #5b9cff;
+  background: #1d3554;
+}
+
+.camera-keyframes {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.camera-keyframe {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  background: #18222d;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.camera-keyframe-time {
+  color: #5b9cff;
+}
+
+.camera-keyframe button {
+  border: 1px solid #2a3744;
+  border-radius: 7px;
+  background: #10171f;
+  color: #fff;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.camera-stage {
+  position: relative;
+  min-height: 220px;
+  overflow: hidden;
+  background: #18202b;
+  border: 1px solid #202b36;
+  border-radius: 12px;
+}
+
+.camera-frame {
+  position: absolute;
+  inset: 10%;
+  border: 2px dashed rgba(255,255,255,.45);
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+.camera-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.camera-crosshair::before,
+.camera-crosshair::after {
+  content: "";
+  position: absolute;
+  background: rgba(255,255,255,.7);
+}
+
+.camera-crosshair::before {
+  width: 24px;
+  height: 1px;
+  top: 12px;
+  left: 0;
+}
+
+.camera-crosshair::after {
+  width: 1px;
+  height: 24px;
+  top: 0;
+  left: 12px;
+}
+
+@media (max-width: 600px) {
+  .camera-controls {
+    grid-template-columns: 1fr;
+  }
+}
