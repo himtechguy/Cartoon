@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080a0f">
+  <title>Cartoon Studio</title>
+
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/editor.css">
+  <link rel="stylesheet" href="css/timeline.css">
+</head>
+
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    🎬 <span>Cartoon Studio</span>
+  </div>
+
+  <div class="top-actions">
+    <span id="saveState">Saved</span>
+    <button id="saveBtn" class="btn">Save</button>
+    <button id="previewBtn" class="btn primary">▶ Preview</button>
+  </div>
+</header>
+
+<aside class="sidebar">
+
+  <button class="nav active" data-page="projects">
+    🏠 Projects
+  </button>
+
+  <button class="nav" data-page="characters">
+    🎭 Characters
+  </button>
+
+  <button class="nav" data-page="editor">
+    🎬 Scene Editor
+  </button>
+
+  <button class="nav" data-page="timeline">
+    ⏱ Timeline
+  </button>
+
+  <button class="nav" data-page="audio">
+    🎵 Audio
+  </button>
+
+  <button class="nav" data-page="settings">
+    ⚙ Settings
+  </button>
+
+</aside>
+
+<main class="main">
+
+<!-- PROJECTS -->
+
+<section id="page-projects" class="page active">
+
+  <div class="page-head">
+
+    <div>
+      <small>WORKSPACE</small>
+      <h1>Your Projects</h1>
+      <p>Create and manage your cartoon series.</p>
+    </div>
+
+    <button id="newProjectBtn" class="btn primary">
+      ＋ New Project
+    </button>
+
+  </div>
+
+  <div id="projectGrid" class="card-grid"></div>
+
+</section>
+
+
+<!-- CHARACTERS -->
+
+<section id="page-characters" class="page">
+
+  <div class="page-head">
+
+    <div>
+      <small>CHARACTER STUDIO</small>
+      <h1>Characters</h1>
+      <p>Create reusable characters.</p>
+    </div>
+
+    <button id="newCharacterBtn" class="btn primary">
+      ＋ New Character
+    </button>
+
+  </div>
+
+  <div id="characterGrid" class="card-grid"></div>
+
+</section>
+
+
+<!-- EDITOR -->
+
+<section id="page-editor" class="page">
+
+  <div class="editor-head">
+
+    <div>
+      <small>SCENE EDITOR</small>
+      <h1 id="sceneTitle">Scene 1</h1>
+    </div>
+
+    <div class="row">
+
+      <select id="sceneSelect"></select>
+
+      <button id="addCharacterBtn" class="btn">
+        ＋ Character
+      </button>
+
+      <button id="addPropBtn" class="btn">
+        ＋ Prop
+      </button>
+
+      <button id="addDialogueBtn" class="btn">
+        💬 Dialogue
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <div class="editor-layout">
+
+    <div class="stage-panel">
+
+      <div class="stage-toolbar">
+
+        <button class="tool active" data-tool="select">
+          ↖ Select
+        </button>
+
+        <button class="tool" data-tool="move">
+          ✥ Move
+        </button>
+
+        <button class="tool" data-tool="scale">
+          ↔ Scale
+        </button>
+
+        <button class="tool" data-tool="rotate">
+          ⟳ Rotate
+        </button>
+
+        <button id="cameraKeyBtn" class="tool">
+          🎥 Camera Keyframe
+        </button>
+
+      </div>
+
+
+      <div class="stage-wrap">
+
+        <div id="stage" class="stage">
+
+          <div id="stageBg" class="stage-bg"></div>
+
+          <div id="stageObjects"></div>
+
+          <div class="camera-frame"></div>
+
+        </div>
+
+      </div>
+
+
+      <div class="stage-footer">
+
+        <span id="stageTime">0.00s</span>
+
+        <button id="fitStageBtn" class="btn small">
+          Fit
+        </button>
+
+        <button id="scenePreviewBtn" class="btn small">
+          ▶ Scene Preview
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <aside class="inspector">
+
+      <h3>Inspector</h3>
+
+      <div id="inspectorContent">
+        <p class="empty">
+          Select a character or object.
+        </p>
+      </div>
+
+    </aside>
+
+  </div>
+
+</section>
+
+
+<!-- TIMELINE -->
+
+<section id="page-timeline" class="page">
+
+  <div class="page-head">
+
+    <div>
+      <small>ANIMATION</small>
+      <h1>Timeline</h1>
+      <p>
+        Control movement, keyframes, dialogue and audio.
+      </p>
+    </div>
+
+    <div class="row">
+
+      <button id="timelineBack" class="btn">
+        ◀
+      </button>
+
+      <button id="playBtn" class="btn primary">
+        ▶ Play
+      </button>
+
+      <button id="stopBtn" class="btn">
+        ■ Stop
+      </button>
+
+      <button id="timelineForward" class="btn">
+        ▶|
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <div class="timeline-panel">
+
+    <div id="timeRuler" class="time-ruler"></div>
+
+    <div id="tracks"></div>
+
+  </div>
+
+</section>
+
+
+<!-- AUDIO -->
+
+<section id="page-audio" class="page">
+
+  <div class="page-head">
+
+    <div>
+      <small>SOUND</small>
+      <h1>Audio Studio</h1>
+      <p>Voice, music and sound effects.</p>
+    </div>
+
+    <label class="btn primary">
+      ＋ Import Audio
+      <input
+        id="audioInput"
+        type="file"
+        accept="audio/*"
+        multiple
+        hidden
+      >
+    </label>
+
+  </div>
+
+  <div id="audioList"></div>
+
+</section>
+
+
+<!-- SETTINGS -->
+
+<section id="page-settings" class="page">
+
+  <div class="page-head">
+
+    <div>
+      <small>CONTROL</small>
+      <h1>Settings</h1>
+    </div>
+
+  </div>
+
+
+  <div class="settings-card">
+
+    <label>
+      Project Name
+      <input id="settingsProjectName">
+    </label>
+
+    <label>
+      Format
+
+      <select id="settingsFormat">
+
+        <option value="portrait">
+          Portrait 9:16
+        </option>
+
+        <option value="landscape">
+          Landscape 16:9
+        </option>
+
+        <option value="square">
+          Square 1:1
+        </option>
+
+      </select>
+
+    </label>
+
+
+    <label>
+      FPS
+      <input id="settingsFps" type="number">
+    </label>
+
+
+    <label>
+      Scene Duration
+      <input id="settingsDuration" type="number">
+    </label>
+
+
+    <div class="row">
+
+      <button id="backupBtn" class="btn">
+        Export Project
+      </button>
+
+      <label class="btn">
+        Import Project
+
+        <input
+          id="backupInput"
+          type="file"
+          accept=".json,.tkproject"
+          hidden
+        >
+
+      </label>
+
+    </div>
+
+  </div>
+
+</section>
+
+</main>
+
+
+<!-- MODAL -->
+
+<div id="modal" class="modal">
+
+  <div class="modal-card">
+
+    <div class="modal-head">
+
+      <h2 id="modalTitle">
+        Create
+      </h2>
+
+      <button id="modalClose" class="icon-btn">
+        ×
+      </button>
+
+    </div>
+
+    <div id="modalBody"></div>
+
+  </div>
+
+</div>
+
+
+<!-- PREVIEW -->
+
+<div id="previewOverlay" class="preview-overlay">
+
+  <div class="preview-card">
+
+    <div class="modal-head">
+
+      <h2>Preview</h2>
+
+      <button id="previewClose" class="icon-btn">
+        ×
+      </button>
+
+    </div>
+
+    <div class="preview-stage-wrap">
+
+      <div id="previewStage" class="stage"></div>
+
+    </div>
+
+    <div class="row">
+
+      <button id="previewPlay" class="btn primary">
+        ▶ Play
+      </button>
+
+      <button id="previewStop" class="btn">
+        ■ Stop
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<div id="toast" class="toast"></div>
+
+
+<script src="js/storage.js"></script>
+<script src="js/undo-redo.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/characters.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/animation.js"></script>
+<script src="js/timeline.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/dialogue.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/preview.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+      </html>
