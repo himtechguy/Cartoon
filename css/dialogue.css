@@ -1,0 +1,167 @@
+.dialogue-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dialogue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dialogue-item {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 12px;
+}
+
+.dialogue-avatar {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #18222d;
+  border-radius: 10px;
+  font-size: 22px;
+}
+
+.dialogue-content {
+  min-width: 0;
+}
+
+.dialogue-character {
+  display: block;
+  margin-bottom: 4px;
+  color: #5b9cff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dialogue-text {
+  color: #fff;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.dialogue-timing {
+  margin-top: 5px;
+  color: #8996a5;
+  font-size: 11px;
+}
+
+.dialogue-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.dialogue-actions button {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid #2a3744;
+  border-radius: 8px;
+  background: #18222d;
+  color: #fff;
+  cursor: pointer;
+}
+
+.dialogue-actions .danger-btn {
+  color: #ff7777;
+  border-color: #633333;
+}
+
+.dialogue-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 14px;
+}
+
+.dialogue-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dialogue-field.full {
+  grid-column: 1 / -1;
+}
+
+.dialogue-field label {
+  color: #8996a5;
+  font-size: 12px;
+}
+
+.dialogue-field input,
+.dialogue-field select,
+.dialogue-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #2a3744;
+  border-radius: 9px;
+  background: #0d141b;
+  color: #fff;
+  outline: none;
+}
+
+.dialogue-field textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.dialogue-field input:focus,
+.dialogue-field select:focus,
+.dialogue-field textarea:focus {
+  border-color: #5b9cff;
+}
+
+.dialogue-preview {
+  position: relative;
+  min-height: 180px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #18202b;
+  border-radius: 12px;
+}
+
+.dialogue-bubble {
+  max-width: 75%;
+  padding: 11px 15px;
+  background: #fff;
+  color: #111;
+  border-radius: 15px;
+  line-height: 1.4;
+  box-shadow: 0 5px 18px rgba(0,0,0,.25);
+}
+
+@media (max-width: 600px) {
+  .dialogue-item {
+    grid-template-columns: 42px 1fr;
+  }
+
+  .dialogue-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .dialogue-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .dialogue-field.full {
+    grid-column: auto;
+  }
+  }
