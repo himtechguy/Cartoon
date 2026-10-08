@@ -1,20 +1,28 @@
 const Camera = {
-  init() {},
+  currentSceneId: null,
 
-  getScene() {
-    if (typeof Editor === "undefined") {
-      return null;
-    }
-
-    return Editor.getScene();
+  init() {
+    this.ensureStructure();
   },
 
-  getData() {
-    const scene = this.getScene();
+  getScene() {
+    if (typeof getCurrentScene === "function") {
+      return getCurrentScene();
+    }
 
+    const episode = project?.episodes?.[0];
+    if (!episode?.scenes?.length) return null;
+
+    return (
+      episode.scenes.find(scene => scene.id === this.currentSceneId) ||
+      episode.scenes[0]
+    );
+  },
+
+  ensureStructure(scene = this.getScene()) {
     if (!scene) return null;
 
-    if (!scene.camera) {
+    if (!scene.camera || typeof scene.camera !== "object") {
       scene.camera = {
         x: 50,
         y: 50,
@@ -24,274 +32,299 @@ const Camera = {
       };
     }
 
+    if (!Array.isArray(scene.camera.keyframes)) {
+      scene.camera.keyframes = [];
+    }
+
     return scene.camera;
   },
 
-  addKeyframe(time, values = {}) {
-    const camera = this.getData();
+  getData(scene = this.getScene()) {
+    return this.ensureStructure(scene);
+  },
 
+  setPosition(x, y) {
+    const scene = this.getScene();
+    const camera = this.ensureStructure(scene);
     if (!camera) return;
 
-    if (!camera.keyframes) {
-      camera.keyframes = [];
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
+    }
+
+    camera.x = this.clamp(Number(x), 0, 100);
+    camera.y = this.clamp(Number(y), 0, 100);
+
+    this.apply(camera);
+
+    if (typeof Editor !== "undefined" && Editor.render) {
+      Editor.render();
+    }
+
+    if (typeof Timeline !== "undefined" && Timeline.render) {
+      Timeline.render();
+    }
+
+    if (typeof saveProject === "function") {
+      saveProject();
+    }
+  },
+
+  setZoom(value) {
+    const scene = this.getScene();
+    const camera = this.ensureStructure(scene);
+    if (!camera) return;
+
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
+    }
+
+    camera.zoom = this.clamp(Number(value), 0.25, 5);
+
+    this.apply(camera);
+
+    if (typeof Editor !== "undefined" && Editor.render) {
+      Editor.render();
+    }
+
+    if (typeof saveProject === "function") {
+      saveProject();
+    }
+  },
+
+  setRotation(value) {
+    const scene = this.getScene();
+    const camera = this.ensureStructure(scene);
+    if (!camera) return;
+
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
+    }
+
+    camera.rotation = Number(value) || 0;
+
+    this.apply(camera);
+
+    if (typeof Editor !== "undefined" && Editor.render) {
+      Editor.render();
+    }
+
+    if (typeof saveProject === "function") {
+      saveProject();
+    }
+  },
+
+  addKeyframe(time = 0) {
+    const scene = this.getScene();
+    const camera = this.ensureStructure(scene);
+    if (!camera) return null;
+
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
     }
 
     const keyframe = {
       id: "camera_kf_" + Date.now(),
-
       time: Number(time) || 0,
-
-      x: values.x ?? camera.x ?? 50,
-
-      y: values.y ?? camera.y ?? 50,
-
-      zoom: values.zoom ?? camera.zoom ?? 1,
-
-      rotation:
-        values.rotation ??
-        camera.rotation ??
-        0
+      x: camera.x,
+      y: camera.y,
+      zoom: camera.zoom,
+      rotation: camera.rotation
     };
 
-    const existing =
-      camera.keyframes.find(
-        k => k.time === keyframe.time
-      );
+    camera.keyframes.push(keyframe);
 
-    if (existing) {
-      Object.assign(
-        existing,
-        keyframe
-      );
-    } else {
-      camera.keyframes.push(
-        keyframe
-      );
+    camera.keyframes.sort((a, b) => a.time - b.time);
+
+    if (typeof saveProject === "function") {
+      saveProject();
     }
 
-    camera.keyframes.sort(
-      (a, b) => a.time - b.time
-    );
-
-    saveProject();
+    if (typeof Timeline !== "undefined" && Timeline.render) {
+      Timeline.render();
+    }
 
     return keyframe;
   },
 
-  deleteKeyframe(time) {
-    const camera = this.getData();
+  deleteKeyframe(id) {
+    const scene = this.getScene();
+    const camera = this.ensureStructure(scene);
+    if (!camera) return;
 
-    if (!camera?.keyframes) return;
+    const index = camera.keyframes.findIndex(k => k.id === id);
+    if (index === -1) return;
 
-    camera.keyframes =
-      camera.keyframes.filter(
-        k =>
-          k.time !== Number(time)
-      );
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
+    }
 
-    saveProject();
+    camera.keyframes.splice(index, 1);
+
+    if (typeof saveProject === "function") {
+      saveProject();
+    }
+
+    if (typeof Timeline !== "undefined" && Timeline.render) {
+      Timeline.render();
+    }
   },
 
-  getStateAt(time) {
-    const camera = this.getData();
+  getStateAt(time, scene = this.getScene()) {
+    const camera = this.ensureStructure(scene);
 
-    if (!camera) return null;
-
-    const frames =
-      (camera.keyframes || [])
-        .slice()
-        .sort(
-          (a, b) =>
-            a.time - b.time
-        );
-
-    if (!frames.length) {
+    if (!camera) {
       return {
-        x: camera.x ?? 50,
-        y: camera.y ?? 50,
-        zoom: camera.zoom ?? 1,
-        rotation:
-          camera.rotation ?? 0
+        x: 50,
+        y: 50,
+        zoom: 1,
+        rotation: 0
       };
     }
 
-    const current =
-      Number(time) || 0;
+    const keyframes = [...camera.keyframes].sort(
+      (a, b) => a.time - b.time
+    );
 
-    if (
-      current <= frames[0].time
-    ) {
+    if (!keyframes.length) {
       return {
-        ...frames[0]
+        x: camera.x,
+        y: camera.y,
+        zoom: camera.zoom,
+        rotation: camera.rotation
       };
     }
 
-    const last =
-      frames[frames.length - 1];
+    const t = Number(time) || 0;
 
-    if (
-      current >= last.time
-    ) {
-      return {
-        ...last
-      };
+    if (t <= keyframes[0].time) {
+      return this.cloneState(keyframes[0]);
     }
 
-    let before =
-      frames[0];
+    const last = keyframes[keyframes.length - 1];
 
-    let after =
-      frames[1];
+    if (t >= last.time) {
+      return this.cloneState(last);
+    }
 
-    for (
-      let i = 0;
-      i < frames.length - 1;
-      i++
-    ) {
+    let previous = keyframes[0];
+    let next = last;
+
+    for (let i = 0; i < keyframes.length - 1; i++) {
       if (
-        current >= frames[i].time &&
-        current <= frames[i + 1].time
+        t >= keyframes[i].time &&
+        t <= keyframes[i + 1].time
       ) {
-        before = frames[i];
-        after = frames[i + 1];
+        previous = keyframes[i];
+        next = keyframes[i + 1];
         break;
       }
     }
 
-    const range =
-      after.time - before.time;
+    const range = next.time - previous.time;
+    const rawProgress = range === 0
+      ? 0
+      : (t - previous.time) / range;
 
     const progress =
-      range === 0
-        ? 0
-        : (current - before.time) /
-          range;
-
-    const eased =
-      this.ease(progress);
+      typeof Animation !== "undefined" &&
+      typeof Animation.easeInOut === "function"
+        ? Animation.easeInOut(rawProgress)
+        : rawProgress;
 
     return {
-      x: this.interpolate(
-        before.x,
-        after.x,
-        eased
-      ),
-
-      y: this.interpolate(
-        before.y,
-        after.y,
-        eased
-      ),
-
-      zoom: this.interpolate(
-        before.zoom,
-        after.zoom,
-        eased
-      ),
-
-      rotation:
-        this.interpolate(
-          before.rotation,
-          after.rotation,
-          eased
-        )
+      x: this.interpolate(previous.x, next.x, progress),
+      y: this.interpolate(previous.y, next.y, progress),
+      zoom: this.interpolate(previous.zoom, next.zoom, progress),
+      rotation: this.interpolate(
+        previous.rotation,
+        next.rotation,
+        progress
+      )
     };
   },
 
-  apply(time) {
-    const state =
-      this.getStateAt(time);
-
-    if (!state) return;
+  apply(camera) {
+    if (!camera) return;
 
     const stage =
-      document.getElementById(
-        "stage"
-      );
+      document.querySelector("#editorStage") ||
+      document.querySelector(".editor-stage") ||
+      document.querySelector(".stage");
 
     if (!stage) return;
 
     stage.style.setProperty(
       "--camera-x",
-      `${state.x}%`
+      `${camera.x}%`
     );
 
     stage.style.setProperty(
       "--camera-y",
-      `${state.y}%`
+      `${camera.y}%`
     );
 
     stage.style.setProperty(
       "--camera-zoom",
-      state.zoom
+      String(camera.zoom)
     );
 
     stage.style.setProperty(
       "--camera-rotation",
-      `${state.rotation}deg`
+      `${camera.rotation}deg`
     );
+
+    stage.dataset.cameraX = camera.x;
+    stage.dataset.cameraY = camera.y;
+    stage.dataset.cameraZoom = camera.zoom;
+    stage.dataset.cameraRotation = camera.rotation;
   },
 
-  setPosition(x, y) {
-    const camera =
-      this.getData();
+  applyAt(time) {
+    const state = this.getStateAt(time);
+    this.apply(state);
+    return state;
+  },
 
+  reset() {
+    const scene = this.getScene();
+    const camera = this.ensureStructure(scene);
     if (!camera) return;
 
-    camera.x =
-      Number(x) || 50;
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
+    }
 
-    camera.y =
-      Number(y) || 50;
+    camera.x = 50;
+    camera.y = 50;
+    camera.zoom = 1;
+    camera.rotation = 0;
 
-    saveProject();
+    this.apply(camera);
+
+    if (typeof saveProject === "function") {
+      saveProject();
+    }
+
+    if (typeof Editor !== "undefined" && Editor.render) {
+      Editor.render();
+    }
   },
 
-  setZoom(zoom) {
-    const camera =
-      this.getData();
-
-    if (!camera) return;
-
-    camera.zoom =
-      Math.max(
-        0.1,
-        Number(zoom) || 1
-      );
-
-    saveProject();
+  cloneState(state) {
+    return {
+      x: Number(state.x) || 50,
+      y: Number(state.y) || 50,
+      zoom: Number(state.zoom) || 1,
+      rotation: Number(state.rotation) || 0
+    };
   },
 
-  setRotation(rotation) {
-    const camera =
-      this.getData();
-
-    if (!camera) return;
-
-    camera.rotation =
-      Number(rotation) || 0;
-
-    saveProject();
+  interpolate(a, b, progress) {
+    return Number(a) + (Number(b) - Number(a)) * progress;
   },
 
-  interpolate(a, b, amount) {
-    return (
-      Number(a || 0) +
-      (Number(b || 0) -
-        Number(a || 0)) *
-        amount
-    );
-  },
-
-  ease(t) {
-    return (
-      t < 0.5
-        ? 2 * t * t
-        : 1 -
-          Math.pow(
-            -2 * t + 2,
-            2
-          ) / 2
-    );
+  clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
   }
 };
