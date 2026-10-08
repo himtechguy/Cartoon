@@ -1,0 +1,289 @@
+const Preview = {
+  playing: false,
+  currentTime: 0,
+  timer: null,
+
+  init() {
+    this.bind();
+  },
+
+  bind() {
+    const preview = document.getElementById("previewOverlay");
+
+    if (!preview) return;
+
+    const close = preview.querySelector(".preview-close");
+
+    if (close) {
+      close.onclick = () => this.close();
+    }
+  },
+
+  open() {
+    const overlay =
+      document.getElementById("previewOverlay");
+
+    if (!overlay) return;
+
+    overlay.classList.add("open");
+
+    this.currentTime = 0;
+    this.playing = false;
+
+    this.render();
+  },
+
+  close() {
+    this.stop();
+
+    const overlay =
+      document.getElementById("previewOverlay");
+
+    if (overlay) {
+      overlay.classList.remove("open");
+    }
+  },
+
+  play() {
+    if (this.playing) return;
+
+    this.playing = true;
+
+    const start =
+      performance.now() -
+      this.currentTime * 1000;
+
+    const tick = now => {
+      if (!this.playing) return;
+
+      this.currentTime =
+        (now - start) / 1000;
+
+      const duration =
+        Number(project.settings?.duration) || 10;
+
+      if (this.currentTime >= duration) {
+        this.currentTime = 0;
+        this.playing = false;
+        this.render();
+        return;
+      }
+
+      this.render();
+
+      this.timer =
+        requestAnimationFrame(tick);
+    };
+
+    this.timer =
+      requestAnimationFrame(tick);
+  },
+
+  pause() {
+    this.playing = false;
+
+    if (this.timer) {
+      cancelAnimationFrame(this.timer);
+      this.timer = null;
+    }
+  },
+
+  stop() {
+    this.pause();
+
+    this.currentTime = 0;
+
+    this.render();
+  },
+
+  render() {
+    const scene = Editor.getScene();
+
+    if (!scene) return;
+
+    const stage =
+      document.getElementById("previewStage");
+
+    if (!stage) return;
+
+    stage.innerHTML = "";
+
+    if (scene.background?.color) {
+      stage.style.background =
+        scene.background.color;
+    }
+
+    const objects =
+      scene.objects || [];
+
+    objects.forEach(object => {
+      const state =
+        object.type === "character"
+          ? Animation.getStateAt(
+              object,
+              this.currentTime
+            )
+          : {
+              x: object.x ?? 50,
+              y: object.y ?? 50,
+              scale: object.scale ?? 1,
+              rotation: object.rotation ?? 0,
+              opacity: object.opacity ?? 1
+            };
+
+      const item =
+        document.createElement("div");
+
+      item.className =
+        "preview-object";
+
+      item.style.left =
+        `${state.x}%`;
+
+      item.style.top =
+        `${state.y}%`;
+
+      item.style.opacity =
+        state.opacity ?? 1;
+
+      item.style.transform =
+        `translate(-50%, -50%)
+         scale(${state.scale ?? 1})
+         rotate(${state.rotation ?? 0}deg)`;
+
+      if (object.type === "character") {
+        const character =
+          project.characters?.find(
+            c => c.id === object.characterId
+          );
+
+        item.innerHTML = `
+          <div class="preview-character">
+            ${
+              character?.name === "Takue"
+                ? "🧑🏾"
+                : "👤"
+            }
+          </div>
+          <span>
+            ${this.escape(
+              character?.name || "Character"
+            )}
+          </span>
+        `;
+      }
+
+      if (object.type === "prop") {
+        item.innerHTML = `
+          <div class="preview-character">
+            📦
+          </div>
+          <span>
+            ${this.escape(
+              object.name || "Prop"
+            )}
+          </span>
+        `;
+      }
+
+      if (object.type === "dialogue") {
+        item.innerHTML = `
+          <div class="preview-bubble">
+            ${this.escape(
+              object.text || ""
+            )}
+          </div>
+        `;
+      }
+
+      stage.appendChild(item);
+    });
+
+    this.renderDialogue(stage);
+    this.renderTime();
+  },
+
+  renderDialogue(stage) {
+    const active =
+      Dialogue.getActive(
+        this.currentTime
+      );
+
+    active.forEach(dialogue => {
+      const bubble =
+        document.createElement("div");
+
+      bubble.className =
+        "preview-dialogue";
+
+      bubble.textContent =
+        dialogue.text;
+
+      bubble.style.left =
+        `${dialogue.x ?? 50}%`;
+
+      bubble.style.top =
+        `${dialogue.y ?? 25}%`;
+
+      bubble.style.fontSize =
+        `${dialogue.fontSize ?? 22}px`;
+
+      stage.appendChild(bubble);
+    });
+  },
+
+  renderTime() {
+    const time =
+      document.getElementById(
+        "previewTime"
+      );
+
+    if (time) {
+      const duration =
+        Number(project.settings?.duration) || 10;
+
+      time.textContent =
+        `${this.formatTime(
+          this.currentTime
+        )} / ${this.formatTime(
+          duration
+        )}`;
+    }
+  },
+
+  seek(value) {
+    this.currentTime =
+      Number(value) || 0;
+
+    this.render();
+  },
+
+  formatTime(seconds) {
+    const value =
+      Math.max(
+        0,
+        Number(seconds) || 0
+      );
+
+    const minutes =
+      Math.floor(value / 60);
+
+    const secs =
+      Math.floor(value % 60);
+
+    return (
+      String(minutes).padStart(2, "0") +
+      ":" +
+      String(secs).padStart(2, "0")
+    );
+  },
+
+  escape(text) {
+    return String(text)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+};
