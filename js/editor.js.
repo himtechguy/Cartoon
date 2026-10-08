@@ -14,20 +14,38 @@ const Editor = {
     if (sceneSelect) {
       sceneSelect.addEventListener("change", () => {
         this.currentSceneId = sceneSelect.value;
+        this.selectedObject = null;
         this.render();
+      });
+    }
+
+    const stage = document.getElementById("stage");
+
+    if (stage) {
+      stage.addEventListener("pointerdown", event => {
+        if (
+          event.target === stage ||
+          event.target.id === "stageBg" ||
+          event.target.id === "stageObjects"
+        ) {
+          this.selectedObject = null;
+          this.render();
+        }
       });
     }
   },
 
+  getEpisode() {
+    return project.episodes?.[0] || null;
+  },
+
   getScene() {
-    if (!project.episodes?.length) return null;
+    const episode = this.getEpisode();
 
-    const episode = project.episodes[0];
-
-    if (!episode.scenes?.length) return null;
+    if (!episode?.scenes?.length) return null;
 
     let scene = episode.scenes.find(
-      s => s.id === this.currentSceneId
+      item => item.id === this.currentSceneId
     );
 
     if (!scene) {
@@ -35,36 +53,52 @@ const Editor = {
       this.currentSceneId = scene.id;
     }
 
+    if (!scene.objects) scene.objects = [];
+    if (!scene.dialogue) scene.dialogue = [];
+    if (!scene.titles) scene.titles = [];
+
     return scene;
   },
 
   loadScene() {
-    const scene = this.getScene();
-
-    if (!scene) return;
-
-    this.currentSceneId = scene.id;
-
+    const episode = this.getEpisode();
     const select = document.getElementById("sceneSelect");
+
+    if (!episode?.scenes?.length) {
+      if (select) select.innerHTML = "";
+      this.render();
+      return;
+    }
+
+    if (
+      !this.currentSceneId ||
+      !episode.scenes.some(
+        scene => scene.id === this.currentSceneId
+      )
+    ) {
+      this.currentSceneId = episode.scenes[0].id;
+    }
 
     if (select) {
       select.innerHTML = "";
 
-      project.episodes[0].scenes.forEach(s => {
+      episode.scenes.forEach(scene => {
         const option = document.createElement("option");
-        option.value = s.id;
-        option.textContent = s.name || "Scene";
+        option.value = scene.id;
+        option.textContent = scene.name || "Scene";
         select.appendChild(option);
       });
 
-      select.value = scene.id;
+      select.value = this.currentSceneId;
     }
 
+    this.selectedObject = null;
     this.render();
   },
 
   render() {
     const scene = this.getScene();
+
     const stage = document.getElementById("stageObjects");
     const background = document.getElementById("stageBg");
 
@@ -73,27 +107,46 @@ const Editor = {
     stage.innerHTML = "";
 
     if (background) {
-      background.style.background =
-        scene.background?.color || "#18202b";
+      const bg = scene.background || {};
+      background.style.background = bg.color || "#18202b";
+
+      if (bg.image) {
+        background.style.backgroundImage =
+          `url("${bg.image}")`;
+
+        background.style.backgroundSize = "cover";
+        background.style.backgroundPosition = "center";
+      } else {
+        background.style.backgroundImage = "none";
+      }
     }
 
-    if (!scene.objects) {
-      scene.objects = [];
-    }
+    if (!scene.objects) scene.objects = [];
 
     scene.objects.forEach(object => {
       this.renderObject(object);
     });
 
     this.renderInspector();
+
+    if (typeof Camera !== "undefined") {
+      Camera.apply(
+        typeof Timeline !== "undefined"
+          ? Timeline.currentTime
+          : 0
+      );
+    }
   },
 
   renderObject(object) {
     const container = document.getElementById("stageObjects");
 
+    if (!container) return;
+
     const element = document.createElement("div");
 
     element.className = "stage-object";
+    element.dataset.id = object.id;
 
     if (
       this.selectedObject &&
@@ -102,43 +155,56 @@ const Editor = {
       element.classList.add("selected");
     }
 
-    element.dataset.id = object.id;
-
-    const character = project.characters?.find(
-      c => c.id === object.characterId
-    );
+    let content = "";
 
     if (object.type === "character") {
-      element.innerHTML = `
-        <div class="object-avatar">
-          ${character?.name === "Takue" ? "🧑🏾" : "👤"}
-        </div>
-        <span>${this.escape(character?.name || "Character")}</span>
+      const character = project.characters?.find(
+        character => character.id === object.characterId
+      );
+
+      const emoji =
+        character?.name === "Takue"
+          ? "🧑🏾"
+          : "👤";
+
+      content = `
+        <div class="object-avatar">${emoji}</div>
+        <span>${this.escape(
+          character?.name || "Character"
+        )}</span>
       `;
     }
 
     if (object.type === "prop") {
-      element.innerHTML = `
-        <div class="object-avatar">📦</div>
+      const propIcon = this.getPropIcon(object.name);
+
+      content = `
+        <div class="object-avatar">${propIcon}</div>
         <span>${this.escape(object.name || "Prop")}</span>
       `;
     }
 
     if (object.type === "dialogue") {
-      element.innerHTML = `
+      content = `
         <div class="speech-bubble">
           ${this.escape(object.text || "...")}
         </div>
       `;
     }
 
-    const x = object.x ?? 50;
-    const y = object.y ?? 50;
-    const scale = object.scale ?? 1;
-    const rotation = object.rotation ?? 0;
+    element.innerHTML = content;
+
+    const x = Number(object.x ?? 50);
+    const y = Number(object.y ?? 50);
+    const scale = Number(object.scale ?? 1);
+    const rotation = Number(object.rotation ?? 0);
+    const opacity = Number(object.opacity ?? 1);
 
     element.style.left = `${x}%`;
     element.style.top = `${y}%`;
+
+    element.style.opacity = opacity;
+
     element.style.transform =
       `translate(-50%, -50%) scale(${scale}) rotate(${rotation}deg)`;
 
@@ -155,13 +221,35 @@ const Editor = {
     container.appendChild(element);
   },
 
+  getPropIcon(name) {
+    const icons = {
+      Phone: "📱",
+      Chair: "🪑",
+      Table: "🪑",
+      Car: "🚗",
+      Door: "🚪",
+      Bed: "🛏️",
+      TV: "📺",
+      Cup: "☕",
+      Bag: "👜",
+      Computer: "💻",
+      Food: "🍔",
+      Money: "💵",
+      Books: "📚"
+    };
+
+    return icons[name] || "📦";
+  },
+
   selectObject(id) {
     const scene = this.getScene();
 
     if (!scene) return;
 
     this.selectedObject =
-      scene.objects.find(o => o.id === id) || null;
+      scene.objects.find(
+        object => object.id === id
+      ) || null;
 
     this.render();
   },
@@ -171,17 +259,38 @@ const Editor = {
 
     if (!scene) return;
 
-    if (!scene.objects) {
-      scene.objects = [];
-    }
+    const characters = project.characters || [];
 
-    const character =
-      project.characters?.find(c => c.id === characterId) ||
-      project.characters?.[0];
-
-    if (!character) {
+    if (!characters.length) {
       alert("Create a character first.");
       return;
+    }
+
+    let character;
+
+    if (characterId) {
+      character = characters.find(
+        item => item.id === characterId
+      );
+    }
+
+    if (!character) {
+      const names = characters
+        .map(item => item.name)
+        .join("\n");
+
+      const selectedName = prompt(
+        `Character name:\n\n${names}`
+      );
+
+      if (!selectedName) return;
+
+      character =
+        characters.find(
+          item =>
+            item.name.toLowerCase() ===
+            selectedName.trim().toLowerCase()
+        ) || characters[0];
     }
 
     UndoRedo.saveState();
@@ -194,15 +303,19 @@ const Editor = {
       characterId: character.id,
 
       x: 50,
-      y: 50,
+      y: 55,
 
       scale: 1,
-
       rotation: 0,
+      opacity: 1,
 
       pose: character.pose || "standing",
-
       expression: character.expression || "normal",
+
+      flipX: false,
+      flipY: false,
+
+      zIndex: scene.objects.length,
 
       keyframes: []
     };
@@ -212,18 +325,32 @@ const Editor = {
     this.selectedObject = object;
 
     saveProject();
-
     this.render();
+
+    if (typeof Timeline !== "undefined") {
+      Timeline.render();
+    }
+
+    if (typeof App !== "undefined") {
+      App.toast("Character added");
+    }
   },
 
-  addProp(name = "Chair") {
+  addProp(name) {
     const scene = this.getScene();
 
     if (!scene) return;
 
-    if (!scene.objects) {
-      scene.objects = [];
+    let propName = name;
+
+    if (!propName) {
+      propName = prompt(
+        "Enter prop name:",
+        "Chair"
+      );
     }
+
+    if (!propName || !propName.trim()) return;
 
     UndoRedo.saveState();
 
@@ -232,15 +359,19 @@ const Editor = {
 
       type: "prop",
 
-      name,
+      name: propName.trim(),
 
       x: 50,
-
-      y: 50,
+      y: 55,
 
       scale: 1,
-
       rotation: 0,
+      opacity: 1,
+
+      flipX: false,
+      flipY: false,
+
+      zIndex: scene.objects.length,
 
       keyframes: []
     };
@@ -250,8 +381,15 @@ const Editor = {
     this.selectedObject = object;
 
     saveProject();
-
     this.render();
+
+    if (typeof Timeline !== "undefined") {
+      Timeline.render();
+    }
+
+    if (typeof App !== "undefined") {
+      App.toast("Prop added");
+    }
   },
 
   addDialogue() {
@@ -259,15 +397,9 @@ const Editor = {
 
     if (!scene) return;
 
-    const text = prompt(
-      "Enter dialogue:"
-    );
+    const text = prompt("Enter dialogue:");
 
     if (!text || !text.trim()) return;
-
-    if (!scene.objects) {
-      scene.objects = [];
-    }
 
     UndoRedo.saveState();
 
@@ -279,16 +411,18 @@ const Editor = {
       text: text.trim(),
 
       x: 50,
-
       y: 25,
 
       scale: 1,
-
       rotation: 0,
+      opacity: 1,
 
       start: 0,
+      end: 3,
 
-      end: 3
+      zIndex: scene.objects.length,
+
+      keyframes: []
     };
 
     scene.objects.push(object);
@@ -296,8 +430,15 @@ const Editor = {
     this.selectedObject = object;
 
     saveProject();
-
     this.render();
+
+    if (typeof Timeline !== "undefined") {
+      Timeline.render();
+    }
+
+    if (typeof App !== "undefined") {
+      App.toast("Dialogue added");
+    }
   },
 
   deleteSelected() {
@@ -307,15 +448,20 @@ const Editor = {
 
     UndoRedo.saveState();
 
-    scene.objects = scene.objects.filter(
-      o => o.id !== this.selectedObject.id
-    );
+    scene.objects =
+      scene.objects.filter(
+        object =>
+          object.id !== this.selectedObject.id
+      );
 
     this.selectedObject = null;
 
     saveProject();
-
     this.render();
+
+    if (typeof Timeline !== "undefined") {
+      Timeline.render();
+    }
   },
 
   duplicateSelected() {
@@ -333,15 +479,117 @@ const Editor = {
 
     copy.x = Math.min(
       95,
-      (copy.x ?? 50) + 5
+      Number(copy.x ?? 50) + 5
     );
+
+    copy.zIndex = scene.objects.length;
 
     scene.objects.push(copy);
 
     this.selectedObject = copy;
 
     saveProject();
+    this.render();
 
+    if (typeof Timeline !== "undefined") {
+      Timeline.render();
+    }
+  },
+
+  bringForward() {
+    const scene = this.getScene();
+
+    if (!scene || !this.selectedObject) return;
+
+    const index =
+      scene.objects.findIndex(
+        object =>
+          object.id === this.selectedObject.id
+      );
+
+    if (index < 0 || index >= scene.objects.length - 1) {
+      return;
+    }
+
+    UndoRedo.saveState();
+
+    const next = scene.objects[index + 1];
+
+    scene.objects[index + 1] = this.selectedObject;
+    scene.objects[index] = next;
+
+    this.updateLayerIndexes(scene);
+
+    saveProject();
+    this.render();
+  },
+
+  sendBackward() {
+    const scene = this.getScene();
+
+    if (!scene || !this.selectedObject) return;
+
+    const index =
+      scene.objects.findIndex(
+        object =>
+          object.id === this.selectedObject.id
+      );
+
+    if (index <= 0) return;
+
+    UndoRedo.saveState();
+
+    const previous = scene.objects[index - 1];
+
+    scene.objects[index - 1] = this.selectedObject;
+    scene.objects[index] = previous;
+
+    this.updateLayerIndexes(scene);
+
+    saveProject();
+    this.render();
+  },
+
+  updateLayerIndexes(scene) {
+    scene.objects.forEach(
+      (object, index) => {
+        object.zIndex = index;
+      }
+    );
+  },
+
+  flipHorizontal() {
+    if (!this.selectedObject) return;
+
+    UndoRedo.saveState();
+
+    this.selectedObject.flipX =
+      !this.selectedObject.flipX;
+
+    saveProject();
+    this.render();
+  },
+
+  setPose(pose) {
+    if (!this.selectedObject) return;
+
+    UndoRedo.saveState();
+
+    this.selectedObject.pose = pose;
+
+    saveProject();
+    this.render();
+  },
+
+  setExpression(expression) {
+    if (!this.selectedObject) return;
+
+    UndoRedo.saveState();
+
+    this.selectedObject.expression =
+      expression;
+
+    saveProject();
     this.render();
   },
 
@@ -354,27 +602,33 @@ const Editor = {
     const rect =
       stage.getBoundingClientRect();
 
+    const startX = event.clientX;
+    const startY = event.clientY;
+
+    const originalX = Number(object.x ?? 50);
+    const originalY = Number(object.y ?? 50);
+
     UndoRedo.saveState();
 
     const move = e => {
-      const x =
-        ((e.clientX - rect.left) /
+      const dx =
+        ((e.clientX - startX) /
           rect.width) *
         100;
 
-      const y =
-        ((e.clientY - rect.top) /
+      const dy =
+        ((e.clientY - startY) /
           rect.height) *
         100;
 
       object.x = Math.max(
         0,
-        Math.min(100, x)
+        Math.min(100, originalX + dx)
       );
 
       object.y = Math.max(
         0,
-        Math.min(100, y)
+        Math.min(100, originalY + dy)
       );
 
       element.style.left =
@@ -414,81 +668,14 @@ const Editor = {
   setTool(tool) {
     this.tool = tool;
 
-    document.querySelectorAll(
-      "[data-tool]"
-    ).forEach(button => {
-      button.classList.toggle(
-        "active",
-        button.dataset.tool === tool
-      );
-    });
-  },
-
-  renderInspector() {
-    const panel =
-      document.getElementById(
-        "inspectorContent"
-      );
-
-    if (!panel) return;
-
-    if (!this.selectedObject) {
-      panel.innerHTML = `
-        <p>Select an object on the stage.</p>
-      `;
-      return;
-    }
-
-    const object =
-      this.selectedObject;
-
-    panel.innerHTML = `
-      <div class="inspector-group">
-        <label>X</label>
-        <input
-          type="number"
-          value="${object.x ?? 50}"
-          onchange="Editor.updateSelected('x', this.value)"
-        >
-      </div>
-
-      <div class="inspector-group">
-        <label>Y</label>
-        <input
-          type="number"
-          value="${object.y ?? 50}"
-          onchange="Editor.updateSelected('y', this.value)"
-        >
-      </div>
-
-      <div class="inspector-group">
-        <label>Scale</label>
-        <input
-          type="number"
-          step="0.1"
-          value="${object.scale ?? 1}"
-          onchange="Editor.updateSelected('scale', this.value)"
-        >
-      </div>
-
-      <div class="inspector-group">
-        <label>Rotation</label>
-        <input
-          type="number"
-          value="${object.rotation ?? 0}"
-          onchange="Editor.updateSelected('rotation', this.value)"
-        >
-      </div>
-
-      <button onclick="Editor.duplicateSelected()">
-        Duplicate
-      </button>
-
-      <button class="danger-btn"
-        onclick="Editor.deleteSelected()">
-        Delete
-      </button>
-    `;
+    document
+      .querySelectorAll("[data-tool]")
+      .forEach(button => {
+        button.classList.toggle(
+          "active",
+          button.dataset.tool === tool
+        );
+      });
   },
 
   updateSelected(property, value) {
@@ -505,8 +692,189 @@ const Editor = {
         : value;
 
     saveProject();
-
     this.render();
+  },
+
+  renderInspector() {
+    const panel =
+      document.getElementById(
+        "inspectorContent"
+      );
+
+    if (!panel) return;
+
+    const object =
+      this.selectedObject;
+
+    if (!object) {
+      panel.innerHTML =
+        "<p>Select an object on the stage.</p>";
+
+      return;
+    }
+
+    const poseOptions = [
+      "standing",
+      "walking",
+      "running",
+      "sitting",
+      "lying",
+      "talking",
+      "pointing",
+      "waving",
+      "dancing",
+      "fighting"
+    ];
+
+    const expressionOptions = [
+      "normal",
+      "happy",
+      "sad",
+      "angry",
+      "scared",
+      "shocked",
+      "laughing",
+      "crying",
+      "confused",
+      "thinking",
+      "smirking"
+    ];
+
+    panel.innerHTML = `
+
+      <div class="inspector-group">
+        <label>X</label>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          value="${object.x ?? 50}"
+          onchange="Editor.updateSelected('x', this.value)"
+        >
+      </div>
+
+      <div class="inspector-group">
+        <label>Y</label>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          value="${object.y ?? 50}"
+          onchange="Editor.updateSelected('y', this.value)"
+        >
+      </div>
+
+      <div class="inspector-group">
+        <label>Scale</label>
+        <input
+          type="number"
+          min="0.1"
+          step="0.1"
+          value="${object.scale ?? 1}"
+          onchange="Editor.updateSelected('scale', this.value)"
+        >
+      </div>
+
+      <div class="inspector-group">
+        <label>Rotation</label>
+        <input
+          type="number"
+          value="${object.rotation ?? 0}"
+          onchange="Editor.updateSelected('rotation', this.value)"
+        >
+      </div>
+
+      <div class="inspector-group">
+        <label>Opacity</label>
+        <input
+          type="number"
+          min="0"
+          max="1"
+          step="0.05"
+          value="${object.opacity ?? 1}"
+          onchange="Editor.updateSelected('opacity', this.value)"
+        >
+      </div>
+
+      ${
+        object.type === "character"
+          ? `
+            <div class="inspector-group">
+              <label>Pose</label>
+
+              <select
+                onchange="Editor.setPose(this.value)"
+              >
+                ${poseOptions.map(
+                  pose => `
+                    <option
+                      value="${pose}"
+                      ${
+                        object.pose === pose
+                          ? "selected"
+                          : ""
+                      }
+                    >
+                      ${pose}
+                    </option>
+                  `
+                ).join("")}
+              </select>
+            </div>
+
+            <div class="inspector-group">
+              <label>Expression</label>
+
+              <select
+                onchange="Editor.setExpression(this.value)"
+              >
+                ${expressionOptions.map(
+                  expression => `
+                    <option
+                      value="${expression}"
+                      ${
+                        object.expression === expression
+                          ? "selected"
+                          : ""
+                      }
+                    >
+                      ${expression}
+                    </option>
+                  `
+                ).join("")}
+              </select>
+            </div>
+
+            <button onclick="Editor.flipHorizontal()">
+              ↔ Flip
+            </button>
+          `
+          : ""
+      }
+
+      <div class="inspector-actions">
+
+        <button onclick="Editor.bringForward()">
+          Bring Forward
+        </button>
+
+        <button onclick="Editor.sendBackward()">
+          Send Back
+        </button>
+
+        <button onclick="Editor.duplicateSelected()">
+          Duplicate
+        </button>
+
+        <button
+          class="danger-btn"
+          onclick="Editor.deleteSelected()"
+        >
+          Delete
+        </button>
+
+      </div>
+    `;
   },
 
   escape(text) {
