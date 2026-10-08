@@ -1,0 +1,93 @@
+.editor-layout {
+  display: grid;
+  grid-template-columns: 1fr 250px;
+  gap: 12px;
+}
+
+.editor-area {
+  min-width: 0;
+}
+
+.editor-toolbar {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.editor-toolbar button {
+  padding: 8px 11px;
+  border-radius: 7px;
+  background: #202936;
+  color: white;
+}
+
+.editor-toolbar button.active {
+  background: #2563eb;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  min-height: 500px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #18202b;
+  border: 1px solid #303a48;
+  touch-action: none;
+}
+
+#stageBg,
+#stageObjects {
+  position: absolute;
+  inset: 0;
+}
+
+.stage-object {
+  position: absolute;
+  padding: 5px;
+  text-align: center;
+  user-select: none;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.stage-object.selected {
+  outline: 2px solid #3b82f6;
+  border-radius: 8px;
+}
+
+.object-avatar {
+  font-size: 65px;
+}
+
+.speech-bubble,
+.preview-bubble,
+.preview-dialogue {
+  max-width: 260px;
+  padding: 9px 13px;
+  border-radius: 12px;
+  background: white;
+  color: #111;
+}
+
+.inspector {
+  background: #111821;
+  border: 1px solid #252e3a;
+  border-radius: 10px;
+  padding: 13px;
+}
+
+.inspector h3 {
+  margin-top: 0;
+}
+
+@media (max-width: 800px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .stage {
+    min-height: 400px;
+  }
+}
