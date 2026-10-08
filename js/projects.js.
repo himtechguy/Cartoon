@@ -1,0 +1,118 @@
+const Projects = {
+  init() {
+    this.render();
+  },
+
+  render() {
+    const container = document.getElementById("projectsList");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    const card = document.createElement("div");
+    card.className = "project-card";
+
+    card.innerHTML = `
+      <div class="project-thumbnail">
+        🎬
+      </div>
+
+      <div class="project-info">
+        <h3>${this.escape(project.name || "My Cartoon")}</h3>
+        <p>
+          ${project.episodes?.length || 1} episode
+          ${(project.episodes?.length || 1) === 1 ? "" : "s"}
+        </p>
+      </div>
+
+      <div class="project-actions">
+        <button onclick="Projects.open()">
+          Open
+        </button>
+
+        <button onclick="Projects.rename()">
+          Rename
+        </button>
+
+        <button onclick="Projects.duplicate()">
+          Duplicate
+        </button>
+      </div>
+    `;
+
+    container.appendChild(card);
+  },
+
+  open() {
+    if (typeof App !== "undefined") {
+      App.navigate("editor");
+    }
+  },
+
+  rename() {
+    const name = prompt(
+      "Enter project name:",
+      project.name || "My Cartoon"
+    );
+
+    if (!name || !name.trim()) return;
+
+    project.name = name.trim();
+
+    saveProject();
+    this.render();
+
+    if (typeof App !== "undefined" && App.toast) {
+      App.toast("Project renamed");
+    }
+  },
+
+  duplicate() {
+    const copy = JSON.parse(
+      JSON.stringify(project)
+    );
+
+    copy.id = "project_" + Date.now();
+    copy.name = (project.name || "My Cartoon") + " Copy";
+
+    copy.createdAt = new Date().toISOString();
+    copy.updatedAt = new Date().toISOString();
+
+    localStorage.setItem(
+      "cartoon_studio_project_copy_" + copy.id,
+      JSON.stringify(copy)
+    );
+
+    if (typeof App !== "undefined" && App.toast) {
+      App.toast("Project duplicated");
+    }
+  },
+
+  create() {
+    if (typeof App !== "undefined" && App.createProject) {
+      App.createProject();
+      return;
+    }
+
+    const name = prompt(
+      "Enter project name:",
+      "My Cartoon"
+    );
+
+    if (!name || !name.trim()) return;
+
+    project.name = name.trim();
+
+    saveProject();
+    this.render();
+  },
+
+  escape(text) {
+    return String(text)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+};
