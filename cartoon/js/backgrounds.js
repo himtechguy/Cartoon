@@ -1,60 +1,16 @@
 const Backgrounds = {
   presets: [
-    {
-      id: "bg_house",
-      name: "House",
-      color: "#8b6f5a"
-    },
-    {
-      id: "bg_bedroom",
-      name: "Bedroom",
-      color: "#5d6d7e"
-    },
-    {
-      id: "bg_living",
-      name: "Living Room",
-      color: "#665b50"
-    },
-    {
-      id: "bg_kitchen",
-      name: "Kitchen",
-      color: "#71808a"
-    },
-    {
-      id: "bg_school",
-      name: "School",
-      color: "#6f8f72"
-    },
-    {
-      id: "bg_street",
-      name: "Street",
-      color: "#59636e"
-    },
-    {
-      id: "bg_shop",
-      name: "Shop",
-      color: "#806b54"
-    },
-    {
-      id: "bg_bus",
-      name: "Bus Stop",
-      color: "#65717c"
-    },
-    {
-      id: "bg_park",
-      name: "Park",
-      color: "#4f7553"
-    },
-    {
-      id: "bg_restaurant",
-      name: "Restaurant",
-      color: "#754f46"
-    },
-    {
-      id: "bg_night",
-      name: "Night",
-      color: "#101a32"
-    }
+    { name: "House", icon: "🏠", color: "#6d7f91" },
+    { name: "Bedroom", icon: "🛏️", color: "#51485f" },
+    { name: "Living Room", icon: "🛋️", color: "#6b6254" },
+    { name: "Kitchen", icon: "🍳", color: "#737b70" },
+    { name: "School", icon: "🏫", color: "#68798a" },
+    { name: "Street", icon: "🛣️", color: "#4d5963" },
+    { name: "Shop", icon: "🏪", color: "#765f4c" },
+    { name: "Bus Stop", icon: "🚌", color: "#586a72" },
+    { name: "Park", icon: "🌳", color: "#3f654d" },
+    { name: "Restaurant", icon: "🍽️", color: "#684e49" },
+    { name: "Night", icon: "🌙", color: "#111a2c" }
   ],
 
   custom: [],
@@ -70,9 +26,10 @@ const Backgrounds = {
           "cartoon_studio_backgrounds"
         );
 
-      this.custom = saved
-        ? JSON.parse(saved)
-        : [];
+      this.custom =
+        saved
+          ? JSON.parse(saved)
+          : [];
 
       if (!Array.isArray(this.custom)) {
         this.custom = [];
@@ -88,10 +45,17 @@ const Backgrounds = {
   },
 
   save() {
-    localStorage.setItem(
-      "cartoon_studio_backgrounds",
-      JSON.stringify(this.custom)
-    );
+    try {
+      localStorage.setItem(
+        "cartoon_studio_backgrounds",
+        JSON.stringify(this.custom)
+      );
+    } catch (error) {
+      console.error(
+        "Could not save backgrounds:",
+        error
+      );
+    }
   },
 
   getAll() {
@@ -101,60 +65,49 @@ const Backgrounds = {
     ];
   },
 
-  find(id) {
+  get(name) {
     return this.getAll().find(
       background =>
-        background.id === id
-    );
+        background.name === name
+    ) || null;
   },
 
   create() {
-    const name = prompt(
-      "Background name:"
-    );
+    const name =
+      prompt(
+        "Enter background name:"
+      );
 
-    if (
-      !name ||
-      !name.trim()
-    ) {
+    if (!name || !name.trim()) {
       return;
     }
 
     const color =
       prompt(
-        "Background colour:",
+        "Background color:",
         "#18202b"
       );
 
-    if (
-      !color ||
-      !color.trim()
-    ) {
-      return;
-    }
-
     const background = {
       id:
-        "bg_custom_" +
-        Date.now(),
+        "background_" +
+        Date.now() +
+        "_" +
+        Math.random()
+          .toString(36)
+          .slice(2, 8),
 
-      name:
-        name.trim(),
+      name: name.trim(),
+
+      icon: "🌄",
 
       color:
-        color.trim(),
+        color || "#18202b",
 
-      type:
-        "color",
+      custom: true,
 
-      image:
-        null,
-
-      weather:
-        "none",
-
-      lighting:
-        "day"
+      createdAt:
+        new Date().toISOString()
     };
 
     this.custom.push(
@@ -163,53 +116,103 @@ const Backgrounds = {
 
     this.save();
 
-    App.toast(
-      "Background created"
-    );
+    if (
+      typeof Assets !== "undefined" &&
+      Assets.addBackground
+    ) {
+      Assets.addBackground(
+        background
+      );
+    }
+
+    if (
+      typeof App !== "undefined" &&
+      App.toast
+    ) {
+      App.toast(
+        "Background created"
+      );
+    }
 
     return background;
   },
 
-  apply(id) {
+  apply(name) {
     const background =
-      this.find(id);
+      this.get(name);
 
     if (!background) {
       return;
     }
 
     const scene =
-      Editor.getScene();
+      typeof Scenes !== "undefined"
+        ? Scenes.getCurrent()
+        : null;
 
     if (!scene) {
-      alert(
-        "Create a scene first."
-      );
+      if (
+        typeof App !== "undefined" &&
+        App.toast
+      ) {
+        App.toast(
+          "Open a scene first"
+        );
+      }
+
       return;
     }
 
-    UndoRedo.saveState();
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
+    }
 
     scene.background = {
-      ...background
+      type: "color",
+
+      color:
+        background.color ||
+        "#18202b",
+
+      image:
+        background.image ||
+        null,
+
+      name:
+        background.name,
+
+      weather:
+        scene.background?.weather ||
+        "none",
+
+      lighting:
+        scene.background?.lighting ||
+        "day"
     };
 
     saveProject();
 
-    Editor.render();
+    if (
+      typeof Editor !== "undefined"
+    ) {
+      Editor.render();
+    }
 
-    App.toast(
-      `${background.name} applied`
-    );
+    if (
+      typeof Scenes !== "undefined" &&
+      Scenes.render
+    ) {
+      Scenes.render();
+    }
   },
 
   setColor(color) {
     const scene =
-      Editor.getScene();
+      typeof Scenes !== "undefined"
+        ? Scenes.getCurrent()
+        : null;
 
     if (!scene) return;
-
-    UndoRedo.saveState();
 
     if (!scene.background) {
       scene.background = {};
@@ -219,65 +222,53 @@ const Backgrounds = {
       "color";
 
     scene.background.color =
-      color;
+      color || "#18202b";
 
     saveProject();
 
-    Editor.render();
+    if (
+      typeof Editor !== "undefined"
+    ) {
+      Editor.render();
+    }
   },
 
   setWeather(weather) {
-    const scene =
-      Editor.getScene();
-
-    if (!scene) return;
-
-    if (!scene.background) {
-      scene.background = {};
+    if (
+      typeof Scenes !== "undefined" &&
+      Scenes.setWeather
+    ) {
+      Scenes.setWeather(
+        weather
+      );
     }
-
-    scene.background.weather =
-      weather;
-
-    saveProject();
-
-    Editor.render();
   },
 
   setLighting(lighting) {
-    const scene =
-      Editor.getScene();
-
-    if (!scene) return;
-
-    if (!scene.background) {
-      scene.background = {};
+    if (
+      typeof Scenes !== "undefined" &&
+      Scenes.setLighting
+    ) {
+      Scenes.setLighting(
+        lighting
+      );
     }
-
-    scene.background.lighting =
-      lighting;
-
-    saveProject();
-
-    Editor.render();
   },
 
-  deleteCustom(id) {
-    const preset =
-      this.presets.find(
-        item => item.id === id
+  deleteCustom(name) {
+    const background =
+      this.custom.find(
+        item =>
+          item.name === name
       );
 
-    if (preset) {
-      alert(
-        "Built-in backgrounds cannot be deleted."
-      );
+    if (!background) {
       return;
     }
 
     const confirmed =
       confirm(
-        "Delete this background?"
+        `Delete custom background "${name}"?`
       );
 
     if (!confirmed) {
@@ -286,13 +277,135 @@ const Backgrounds = {
 
     this.custom =
       this.custom.filter(
-        item => item.id !== id
+        item =>
+          item.name !== name
       );
 
     this.save();
 
-    App.toast(
-      "Background deleted"
+    if (
+      typeof Assets !== "undefined"
+    ) {
+      const assets =
+        Assets.get(
+          "backgrounds"
+        );
+
+      const asset =
+        assets.find(
+          item =>
+            item.name === name
+        );
+
+      if (asset) {
+        Assets.remove(
+          "backgrounds",
+          asset.id
+        );
+      }
+    }
+
+    if (
+      typeof App !== "undefined" &&
+      App.toast
+    ) {
+      App.toast(
+        "Background deleted"
+      );
+    }
+  },
+
+  render(containerId = "backgroundList") {
+    const container =
+      document.getElementById(
+        containerId
+      );
+
+    if (!container) {
+      return;
+    }
+
+    container.innerHTML = "";
+
+    this.getAll().forEach(
+      background => {
+        const button =
+          document.createElement(
+            "button"
+          );
+
+        button.type = "button";
+
+        button.className =
+          "character-option";
+
+        button.innerHTML = `
+          <span
+            style="
+              font-size:20px;
+              margin-right:6px;
+            "
+          >
+            ${this.escape(
+              background.icon ||
+              "🌄"
+            )}
+          </span>
+
+          ${this.escape(
+            background.name
+          )}
+        `;
+
+        button.addEventListener(
+          "click",
+          () => {
+            this.apply(
+              background.name
+            );
+          }
+        );
+
+        container.appendChild(
+          button
+        );
+      }
     );
+  },
+
+  getCurrent() {
+    const scene =
+      typeof Scenes !== "undefined"
+        ? Scenes.getCurrent()
+        : null;
+
+    return (
+      scene?.background ||
+      null
+    );
+  },
+
+  escape(text) {
+    return String(text)
+      .replaceAll(
+        "&",
+        "&amp;"
+      )
+      .replaceAll(
+        "<",
+        "&lt;"
+      )
+      .replaceAll(
+        ">",
+        "&gt;"
+      )
+      .replaceAll(
+        '"',
+        "&quot;"
+      )
+      .replaceAll(
+        "'",
+        "&#039;"
+      );
   }
 };
