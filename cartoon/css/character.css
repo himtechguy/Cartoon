@@ -1,0 +1,162 @@
+/* CHARACTER STUDIO */
+
+.character-card {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: #111820;
+  border: 1px solid #202b36;
+  border-radius: 14px;
+}
+
+.character-preview {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #18222d;
+  border-radius: 14px;
+  font-size: 38px;
+}
+
+.character-info h3 {
+  margin: 0 0 5px;
+  font-size: 16px;
+}
+
+.character-info p {
+  margin: 0;
+  color: #8996a5;
+  font-size: 13px;
+}
+
+.character-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.character-actions button {
+  border: 1px solid #2b3947;
+  background: #18222d;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.character-actions button:hover {
+  background: #22303e;
+}
+
+.character-actions .danger-btn {
+  color: #ff7777;
+  border-color: #633333;
+}
+
+.character-studio {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 18px;
+}
+
+.character-preview-panel {
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 16px;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.character-preview-large {
+  font-size: 120px;
+}
+
+.character-editor-panel {
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.character-section {
+  margin-bottom: 20px;
+}
+
+.character-section h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.character-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.character-option {
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid #2a3744;
+  background: #18222d;
+  color: #fff;
+  cursor: pointer;
+}
+
+.character-option.active {
+  border-color: #5b9cff;
+  background: #1d3554;
+}
+
+.character-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.character-field label {
+  font-size: 12px;
+  color: #8996a5;
+}
+
+.character-field input,
+.character-field select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border-radius: 9px;
+  border: 1px solid #2a3744;
+  background: #0d141b;
+  color: #fff;
+}
+
+@media (max-width: 700px) {
+  .character-card {
+    grid-template-columns: 58px 1fr;
+  }
+
+  .character-preview {
+    width: 54px;
+    height: 54px;
+    font-size: 32px;
+  }
+
+  .character-actions {
+    grid-column: 1 / -1;
+  }
+
+  .character-studio {
+    grid-template-columns: 1fr;
+  }
+
+  .character-preview-panel {
+    min-height: 280px;
+  }
+}
