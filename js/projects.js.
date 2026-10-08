@@ -1,118 +1,939 @@
 const Projects = {
+  storageKey: "cartoon_studio_projects",
+  projects: [],
+  currentId: null,
+
   init() {
+    this.load();
+    this.ensureCurrent();
     this.render();
   },
 
-  render() {
-    const container = document.getElementById("projectsList");
-    if (!container) return;
+  load() {
+    try {
+      const saved = localStorage.getItem(this.storageKey);
 
-    container.innerHTML = "";
+      this.projects = saved
+        ? JSON.parse(saved)
+        : [];
 
-    const card = document.createElement("div");
-    card.className = "project-card";
+      if (!Array.isArray(this.projects)) {
+        this.projects = [];
+      }
+    } catch (error) {
+      console.error(
+        "Could not load projects:",
+        error
+      );
 
-    card.innerHTML = `
-      <div class="project-thumbnail">
-        🎬
-      </div>
+      this.projects = [];
+    }
 
-      <div class="project-info">
-        <h3>${this.escape(project.name || "My Cartoon")}</h3>
-        <p>
-          ${project.episodes?.length || 1} episode
-          ${(project.episodes?.length || 1) === 1 ? "" : "s"}
-        </p>
-      </div>
-
-      <div class="project-actions">
-        <button onclick="Projects.open()">
-          Open
-        </button>
-
-        <button onclick="Projects.rename()">
-          Rename
-        </button>
-
-        <button onclick="Projects.duplicate()">
-          Duplicate
-        </button>
-      </div>
-    `;
-
-    container.appendChild(card);
+    this.syncCurrentProject();
   },
 
-  open() {
-    if (typeof App !== "undefined") {
+  save() {
+    try {
+      localStorage.setItem(
+        this.storageKey,
+        JSON.stringify(this.projects)
+      );
+
+      return true;
+    } catch (error) {
+      console.error(
+        "Could not save projects:",
+        error
+      );
+
+      this.toast(
+        "Could not save project list"
+      );
+
+      return false;
+    }
+  },
+
+  ensureCurrent() {
+    if (
+      typeof project === "undefined" ||
+      !project
+    ) {
+      return;
+    }
+
+    if (!project.id) {
+      project.id =
+        "project_" + Date.now();
+    }
+
+    const existing =
+      this.projects.find(
+        item => item.id === project.id
+      );
+
+    if (!existing) {
+      this.projects.push(
+        this.createSummary(project)
+      );
+
+      this.save();
+    }
+
+    this.currentId = project.id;
+
+    this.syncCurrentProject();
+  },
+
+  syncCurrentProject() {
+    if (
+      typeof project === "undefined" ||
+      !project?.id
+    ) {
+      return;
+    }
+
+    const index =
+      this.projects.findIndex(
+        item => item.id === project.id
+      );
+
+    const summary =
+      this.createSummary(project);
+
+    if (index === -1) {
+      this.projects.push(summary);
+    } else {
+      this.projects[index] = {
+        ...this.projects[index],
+        ...summary
+      };
+    }
+
+    this.currentId =
+      project.id;
+
+    this.save();
+  },
+
+  createSummary(data) {
+    return {
+      id:
+        data.id ||
+        "project_" + Date.now(),
+
+      name:
+        data.name ||
+        "Untitled Project",
+
+      description:
+        data.description ||
+        "",
+
+      thumbnail:
+        data.thumbnail ||
+        null,
+
+      createdAt:
+        data.createdAt ||
+        new Date().toISOString(),
+
+      updatedAt:
+        data.updatedAt ||
+        new Date().toISOString(),
+
+      episodeCount:
+        Array.isArray(data.episodes)
+          ? data.episodes.length
+          : 0,
+
+      characterCount:
+        Array.isArray(data.characters)
+          ? data.characters.length
+          : 0
+    };
+  },
+
+  create() {
+    const name =
+      prompt(
+        "Project name:",
+        "My Cartoon"
+      );
+
+    if (
+      name === null ||
+      !name.trim()
+    ) {
+      return;
+    }
+
+    const newProject =
+      typeof createDefaultProject ===
+      "function"
+        ? createDefaultProject()
+        : {
+            id:
+              "project_" +
+              Date.now(),
+
+            name:
+              name.trim(),
+
+            description: "",
+
+            createdAt:
+              new Date().toISOString(),
+
+            updatedAt:
+              new Date().toISOString(),
+
+            characters: [],
+
+            episodes: [],
+
+            assets: {}
+          };
+
+    newProject.id =
+      "project_" +
+      Date.now();
+
+    newProject.name =
+      name.trim();
+
+    newProject.createdAt =
+      new Date().toISOString();
+
+    newProject.updatedAt =
+      new Date().toISOString();
+
+    this.projects.push(
+      this.createSummary(
+        newProject
+      )
+    );
+
+    this.save();
+
+    if (
+      typeof project !== "undefined"
+    ) {
+      project =
+        newProject;
+    }
+
+    if (
+      typeof saveProject ===
+      "function"
+    ) {
+      saveProject();
+    }
+
+    this.currentId =
+      newProject.id;
+
+    this.toast(
+      "Project created"
+    );
+
+    this.render();
+
+    if (
+      typeof App !== "undefined" &&
+      typeof App.refresh ===
+        "function"
+    ) {
+      App.refresh();
+    }
+
+    if (
+      typeof App !== "undefined" &&
+      typeof App.navigate ===
+        "function"
+    ) {
       App.navigate("editor");
     }
   },
 
-  rename() {
-    const name = prompt(
-      "Enter project name:",
-      project.name || "My Cartoon"
-    );
+  open(id) {
+    const item =
+      this.projects.find(
+        projectItem =>
+          projectItem.id === id
+      );
 
-    if (!name || !name.trim()) return;
+    if (!item) {
+      this.toast(
+        "Project not found"
+      );
 
-    project.name = name.trim();
-
-    saveProject();
-    this.render();
-
-    if (typeof App !== "undefined" && App.toast) {
-      App.toast("Project renamed");
-    }
-  },
-
-  duplicate() {
-    const copy = JSON.parse(
-      JSON.stringify(project)
-    );
-
-    copy.id = "project_" + Date.now();
-    copy.name = (project.name || "My Cartoon") + " Copy";
-
-    copy.createdAt = new Date().toISOString();
-    copy.updatedAt = new Date().toISOString();
-
-    localStorage.setItem(
-      "cartoon_studio_project_copy_" + copy.id,
-      JSON.stringify(copy)
-    );
-
-    if (typeof App !== "undefined" && App.toast) {
-      App.toast("Project duplicated");
-    }
-  },
-
-  create() {
-    if (typeof App !== "undefined" && App.createProject) {
-      App.createProject();
       return;
     }
 
-    const name = prompt(
-      "Enter project name:",
-      "My Cartoon"
+    if (
+      typeof project !== "undefined" &&
+      project.id === id
+    ) {
+      this.currentId = id;
+
+      if (
+        typeof App !== "undefined" &&
+        typeof App.navigate ===
+          "function"
+      ) {
+        App.navigate("editor");
+      }
+
+      return;
+    }
+
+    const copyKey =
+      "cartoon_studio_project_data_" +
+      id;
+
+    let stored = null;
+
+    try {
+      const raw =
+        localStorage.getItem(
+          copyKey
+        );
+
+      if (raw) {
+        stored =
+          JSON.parse(raw);
+      }
+    } catch (error) {
+      console.warn(
+        "Could not read project copy:",
+        error
+      );
+    }
+
+    if (!stored) {
+      if (
+        typeof project !== "undefined" &&
+        project.id === id
+      ) {
+        stored = project;
+      }
+    }
+
+    if (!stored) {
+      this.toast(
+        "Project data is not available yet"
+      );
+
+      return;
+    }
+
+    if (
+      typeof normalizeProject ===
+      "function"
+    ) {
+      stored =
+        normalizeProject(
+          stored
+        );
+    }
+
+    project = stored;
+
+    this.currentId =
+      stored.id;
+
+    if (
+      typeof saveProject ===
+      "function"
+    ) {
+      saveProject();
+    }
+
+    this.syncCurrentProject();
+
+    if (
+      typeof App !== "undefined" &&
+      typeof App.refresh ===
+        "function"
+    ) {
+      App.refresh();
+    }
+
+    if (
+      typeof App !== "undefined" &&
+      typeof App.navigate ===
+        "function"
+    ) {
+      App.navigate("editor");
+    }
+
+    this.toast(
+      "Project opened"
+    );
+  },
+
+  rename(id) {
+    const item =
+      this.projects.find(
+        projectItem =>
+          projectItem.id === id
+      );
+
+    if (!item) return;
+
+    const name =
+      prompt(
+        "New project name:",
+        item.name
+      );
+
+    if (
+      name === null ||
+      !name.trim()
+    ) {
+      return;
+    }
+
+    if (
+      typeof UndoRedo !==
+      "undefined"
+    ) {
+      UndoRedo.saveState();
+    }
+
+    item.name =
+      name.trim();
+
+    item.updatedAt =
+      new Date().toISOString();
+
+    if (
+      typeof project !== "undefined" &&
+      project.id === id
+    ) {
+      project.name =
+        item.name;
+
+      project.updatedAt =
+        item.updatedAt;
+
+      if (
+        typeof saveProject ===
+        "function"
+      ) {
+        saveProject();
+      }
+    }
+
+    this.save();
+    this.render();
+
+    if (
+      typeof App !== "undefined" &&
+      typeof App.updateProjectName ===
+        "function"
+    ) {
+      App.updateProjectName();
+    }
+
+    this.toast(
+      "Project renamed"
+    );
+  },
+
+  duplicate(id) {
+    const source =
+      this.getProjectData(id);
+
+    if (!source) {
+      this.toast(
+        "Project data is not available"
+      );
+
+      return;
+    }
+
+    const copy =
+      JSON.parse(
+        JSON.stringify(source)
+      );
+
+    copy.id =
+      "project_" +
+      Date.now();
+
+    copy.name =
+      (source.name ||
+        "Untitled Project") +
+      " Copy";
+
+    copy.createdAt =
+      new Date().toISOString();
+
+    copy.updatedAt =
+      new Date().toISOString();
+
+    const summary =
+      this.createSummary(
+        copy
+      );
+
+    this.projects.push(
+      summary
     );
 
-    if (!name || !name.trim()) return;
+    try {
+      localStorage.setItem(
+        "cartoon_studio_project_data_" +
+          copy.id,
+        JSON.stringify(copy)
+      );
+    } catch (error) {
+      console.error(
+        "Could not store duplicated project:",
+        error
+      );
+    }
 
-    project.name = name.trim();
-
-    saveProject();
+    this.save();
     this.render();
+
+    this.toast(
+      "Project duplicated"
+    );
+  },
+
+  getProjectData(id) {
+    if (
+      typeof project !== "undefined" &&
+      project?.id === id
+    ) {
+      return project;
+    }
+
+    try {
+      const raw =
+        localStorage.getItem(
+          "cartoon_studio_project_data_" +
+            id
+        );
+
+      if (!raw) {
+        return null;
+      }
+
+      return JSON.parse(raw);
+    } catch (error) {
+      console.error(
+        "Could not load project data:",
+        error
+      );
+
+      return null;
+    }
+  },
+
+  delete(id) {
+    const item =
+      this.projects.find(
+        projectItem =>
+          projectItem.id === id
+      );
+
+    if (!item) return;
+
+    const confirmed =
+      confirm(
+        `Delete "${item.name}"? This cannot be undone.`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    if (
+      typeof UndoRedo !==
+      "undefined"
+    ) {
+      UndoRedo.saveState();
+    }
+
+    this.projects =
+      this.projects.filter(
+        projectItem =>
+          projectItem.id !== id
+      );
+
+    localStorage.removeItem(
+      "cartoon_studio_project_data_" +
+        id
+    );
+
+    this.save();
+
+    if (
+      typeof project !== "undefined" &&
+      project.id === id
+    ) {
+      if (
+        this.projects.length
+      ) {
+        const next =
+          this.projects[
+            this.projects.length - 1
+          ];
+
+        const data =
+          this.getProjectData(
+            next.id
+          );
+
+        if (data) {
+          project =
+            typeof normalizeProject ===
+            "function"
+              ? normalizeProject(
+                  data
+                )
+              : data;
+
+          this.currentId =
+            project.id;
+
+          if (
+            typeof saveProject ===
+            "function"
+          ) {
+            saveProject();
+          }
+        }
+      } else {
+        project =
+          typeof createDefaultProject ===
+          "function"
+            ? createDefaultProject()
+            : null;
+
+        if (project) {
+          this.currentId =
+            project.id;
+
+          this.projects.push(
+            this.createSummary(
+              project
+            )
+          );
+
+          if (
+            typeof saveProject ===
+            "function"
+          ) {
+            saveProject();
+          }
+        }
+      }
+    }
+
+    this.render();
+
+    if (
+      typeof App !== "undefined" &&
+      typeof App.refresh ===
+        "function"
+    ) {
+      App.refresh();
+    }
+
+    this.toast(
+      "Project deleted"
+    );
+  },
+
+  search(query = "") {
+    const term =
+      String(query)
+        .trim()
+        .toLowerCase();
+
+    if (!term) {
+      return [
+        ...this.projects
+      ];
+    }
+
+    return this.projects.filter(
+      item =>
+        String(item.name || "")
+          .toLowerCase()
+          .includes(term) ||
+        String(
+          item.description || ""
+        )
+          .toLowerCase()
+          .includes(term)
+    );
+  },
+
+  render() {
+    const container =
+      document.querySelector(
+        "#projectsList"
+      );
+
+    if (!container) {
+      return;
+    }
+
+    this.syncCurrentProject();
+
+    if (!this.projects.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">
+            🎬
+          </div>
+
+          <h3>
+            No projects yet
+          </h3>
+
+          <p>
+            Create your first cartoon project.
+          </p>
+
+          <button
+            type="button"
+            onclick="Projects.create()"
+          >
+            ＋ Create Project
+          </button>
+        </div>
+      `;
+
+      return;
+    }
+
+    container.innerHTML =
+      this.projects
+        .map(item =>
+          this.renderCard(
+            item
+          )
+        )
+        .join("");
+  },
+
+  renderCard(item) {
+    const active =
+      item.id ===
+      this.currentId;
+
+    const thumbnail =
+      item.thumbnail
+        ? `
+          <img
+            src="${this.escapeAttribute(
+              item.thumbnail
+            )}"
+            alt=""
+          >
+        `
+        : `
+          <div class="project-placeholder">
+            🎬
+          </div>
+        `;
+
+    return `
+      <article
+        class="project-card ${
+          active
+            ? "active"
+            : ""
+        }"
+        data-project-id="${this.escapeAttribute(
+          item.id
+        )}"
+      >
+
+        <div class="project-thumbnail">
+          ${thumbnail}
+        </div>
+
+        <div class="project-card-body">
+
+          <div class="project-card-heading">
+            <h3>
+              ${this.escape(
+                item.name ||
+                  "Untitled Project"
+              )}
+            </h3>
+
+            ${
+              active
+                ? `
+                  <span class="project-badge">
+                    Current
+                  </span>
+                `
+                : ""
+            }
+          </div>
+
+          <p>
+            ${this.escape(
+              item.description ||
+                "No description"
+            )}
+          </p>
+
+          <div class="project-meta">
+            <span>
+              🎞️ ${
+                Number(
+                  item.episodeCount
+                ) || 0
+              } episodes
+            </span>
+
+            <span>
+              👤 ${
+                Number(
+                  item.characterCount
+                ) || 0
+              } characters
+            </span>
+          </div>
+
+          <div class="project-date">
+            ${this.formatDate(
+              item.updatedAt
+            )}
+          </div>
+
+          <div class="project-actions">
+
+            <button
+              type="button"
+              onclick="Projects.open('${this.escapeAttribute(
+                item.id
+              )}')"
+            >
+              ▶ Open
+            </button>
+
+            <button
+              type="button"
+              onclick="Projects.rename('${this.escapeAttribute(
+                item.id
+              )}')"
+            >
+              ✏️
+            </button>
+
+            <button
+              type="button"
+              onclick="Projects.duplicate('${this.escapeAttribute(
+                item.id
+              )}')"
+            >
+              📋
+            </button>
+
+            <button
+              type="button"
+              onclick="Projects.delete('${this.escapeAttribute(
+                item.id
+              )}')"
+            >
+              🗑️
+            </button>
+
+          </div>
+
+        </div>
+      </article>
+    `;
+  },
+
+  formatDate(value) {
+    if (!value) {
+      return "Recently edited";
+    }
+
+    const date =
+      new Date(value);
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return "Recently edited";
+    }
+
+    return (
+      "Edited " +
+      date.toLocaleDateString(
+        undefined,
+        {
+          day: "numeric",
+          month: "short",
+          year: "numeric"
+        }
+      )
+    );
   },
 
   escape(text) {
-    return String(text)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+    return String(text ?? "")
+      .replace(
+        /&/g,
+        "&amp;"
+      )
+      .replace(
+        /</g,
+        "&lt;"
+      )
+      .replace(
+        />/g,
+        "&gt;"
+      )
+      .replace(
+        /"/g,
+        "&quot;"
+      )
+      .replace(
+        /'/g,
+        "&#039;"
+      );
+  },
+
+  escapeAttribute(text) {
+    return String(text ?? "")
+      .replace(
+        /\\/g,
+        "\\\\"
+      )
+      .replace(
+        /'/g,
+        "\\'"
+      )
+      .replace(
+        /"/g,
+        "&quot;"
+      );
+  },
+
+  toast(message) {
+    if (
+      typeof App !== "undefined" &&
+      typeof App.toast ===
+        "function"
+    ) {
+      App.toast(message);
+    }
   }
 };
