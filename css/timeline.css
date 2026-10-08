@@ -1,0 +1,78 @@
+.timeline-wrapper {
+  position: relative;
+  overflow-x: auto;
+  background: #0c1118;
+  border: 1px solid #252e3a;
+  border-radius: 10px;
+}
+
+.time-ruler {
+  position: relative;
+  height: 40px;
+  min-width: 700px;
+  border-bottom: 1px solid #293340;
+}
+
+.time-mark {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-left: 1px solid #303a47;
+  padding-left: 4px;
+  color: #7e8997;
+  font-size: 11px;
+}
+
+.timeline-tracks {
+  min-width: 700px;
+}
+
+.timeline-track {
+  display: flex;
+  height: 55px;
+  border-bottom: 1px solid #202935;
+}
+
+.timeline-track-name {
+  width: 120px;
+  flex-shrink: 0;
+  padding: 17px 8px;
+  background: #111821;
+  border-right: 1px solid #293340;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.timeline-lane {
+  position: relative;
+  flex: 1;
+  background: #0d131b;
+}
+
+.keyframe {
+  position: absolute;
+  top: 20px;
+  width: 13px;
+  height: 13px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #3b82f6;
+  border-radius: 2px;
+  padding: 0;
+}
+
+.timeline-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ef4444;
+  pointer-events: none;
+  z-index: 20;
+}
+
+@media (max-width: 700px) {
+  .timeline-track-name {
+    width: 90px;
+  }
+}
