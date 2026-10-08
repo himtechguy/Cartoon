@@ -1,58 +1,42 @@
 const Episodes = {
+  currentEpisodeId: null,
+
   init() {
-    this.ensureEpisode();
+    this.ensure();
+    this.currentEpisodeId = project.episodes?.[0]?.id || null;
+    this.render();
   },
 
-  ensureEpisode() {
-    if (!project.episodes) {
+  ensure() {
+    if (!Array.isArray(project.episodes)) {
       project.episodes = [];
     }
 
     if (!project.episodes.length) {
-      project.episodes.push(
-        this.createEpisodeObject(
-          "Episode 1"
-        )
-      );
+      project.episodes.push(this.createEpisodeObject("Episode 1"));
+    }
 
-      saveProject();
+    if (!this.currentEpisodeId) {
+      this.currentEpisodeId = project.episodes[0].id;
     }
   },
 
   createEpisodeObject(name) {
+    const now = Date.now();
+
     return {
-      id:
-        "episode_" +
-        Date.now(),
-
-      name:
-        name || "Episode",
-
-      description:
-        "",
-
-      thumbnail:
-        null,
-
-      createdAt:
-        new Date().toISOString(),
-
-      updatedAt:
-        new Date().toISOString(),
+      id: "episode_" + now,
+      name: name || "Episode",
+      description: "",
+      thumbnail: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
 
       scenes: [
         {
-          id:
-            "scene_" +
-            Date.now(),
-
-          name:
-            "Scene 1",
-
-          duration:
-            Number(
-              project.settings?.duration
-            ) || 10,
+          id: "scene_" + now,
+          name: "Scene 1",
+          duration: 10,
 
           background: {
             type: "color",
@@ -66,12 +50,18 @@ const Episodes = {
 
           dialogue: [],
 
+          titles: [],
+
           camera: {
             x: 50,
             y: 50,
             zoom: 1,
             rotation: 0,
             keyframes: []
+          },
+
+          audio: {
+            tracks: []
           }
         }
       ]
@@ -79,271 +69,262 @@ const Episodes = {
   },
 
   getAll() {
-    return project.episodes || [];
+    this.ensure();
+    return project.episodes;
   },
 
   get(id) {
-    return this.getAll().find(
-      episode =>
-        episode.id === id
-    );
+    return this.getAll().find(episode => episode.id === id) || null;
   },
 
   getCurrent() {
+    this.ensure();
+
     return (
-      this.getAll()[0] ||
+      this.get(this.currentEpisodeId) ||
+      project.episodes[0] ||
       null
     );
   },
 
+  select(id) {
+    const episode = this.get(id);
+
+    if (!episode) return;
+
+    this.currentEpisodeId = id;
+
+    if (typeof Editor !== "undefined") {
+      Editor.currentSceneId = episode.scenes?.[0]?.id || null;
+    }
+
+    saveProject();
+    this.render();
+
+    if (typeof Scenes !== "undefined" && Scenes.render) {
+      Scenes.render();
+    }
+
+    if (typeof Editor !== "undefined") {
+      Editor.render();
+    }
+
+    if (typeof Timeline !== "undefined") {
+      Timeline.render();
+    }
+  },
+
   create() {
-    const name =
-      prompt(
-        "Episode name:",
-        `Episode ${
-          this.getAll().length + 1
-        }`
-      );
+    const name = prompt("Enter episode name:", `Episode ${project.episodes.length + 1}`);
 
-    if (
-      !name ||
-      !name.trim()
-    ) {
-      return;
+    if (!name || !name.trim()) return;
+
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
     }
 
-    UndoRedo.saveState();
+    const episode = this.createEpisodeObject(name.trim());
 
-    const episode =
-      this.createEpisodeObject(
-        name.trim()
-      );
-
-    project.episodes.push(
-      episode
-    );
+    project.episodes.push(episode);
+    this.currentEpisodeId = episode.id;
 
     saveProject();
+    this.render();
 
-    App.toast(
-      "Episode created"
-    );
+    if (typeof Scenes !== "undefined" && Scenes.render) {
+      Scenes.render();
+    }
 
-    return episode;
+    if (typeof Editor !== "undefined") {
+      Editor.loadScene(episode.scenes[0].id);
+      Editor.render();
+    }
+
+    if (typeof Timeline !== "undefined") {
+      Timeline.render();
+    }
+
+    if (typeof App !== "undefined" && App.toast) {
+      App.toast("Episode created");
+    }
   },
 
-  rename(id) {
-    const episode =
-      this.get(id);
+  rename(id = this.currentEpisodeId) {
+    const episode = this.get(id);
 
     if (!episode) return;
 
-    const name =
-      prompt(
-        "Episode name:",
-        episode.name
-      );
+    const name = prompt("Episode name:", episode.name);
 
-    if (
-      !name ||
-      !name.trim()
-    ) {
-      return;
+    if (!name || !name.trim()) return;
+
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
     }
 
-    UndoRedo.saveState();
-
-    episode.name =
-      name.trim();
-
-    episode.updatedAt =
-      new Date().toISOString();
+    episode.name = name.trim();
+    episode.updatedAt = new Date().toISOString();
 
     saveProject();
+    this.render();
 
-    if (
-      typeof Projects !==
-      "undefined"
-    ) {
-      Projects.render();
+    if (typeof App !== "undefined" && App.toast) {
+      App.toast("Episode renamed");
     }
-
-    App.toast(
-      "Episode renamed"
-    );
   },
 
-  editDescription(id) {
-    const episode =
-      this.get(id);
+  editDescription(id = this.currentEpisodeId) {
+    const episode = this.get(id);
 
     if (!episode) return;
 
-    const description =
-      prompt(
-        "Episode description:",
-        episode.description || ""
-      );
-
-    if (
-      description === null
-    ) {
-      return;
-    }
-
-    UndoRedo.saveState();
-
-    episode.description =
-      description;
-
-    episode.updatedAt =
-      new Date().toISOString();
-
-    saveProject();
-  },
-
-  duplicate(id) {
-    const original =
-      this.get(id);
-
-    if (!original) return;
-
-    UndoRedo.saveState();
-
-    const copy =
-      JSON.parse(
-        JSON.stringify(
-          original
-        )
-      );
-
-    copy.id =
-      "episode_" +
-      Date.now();
-
-    copy.name =
-      `${original.name} Copy`;
-
-    copy.createdAt =
-      new Date().toISOString();
-
-    copy.updatedAt =
-      new Date().toISOString();
-
-    copy.scenes =
-      (copy.scenes || []).map(
-        scene => ({
-          ...scene,
-          id:
-            "scene_" +
-            Date.now() +
-            "_" +
-            Math.random()
-              .toString(36)
-              .slice(2, 7)
-        })
-      );
-
-    project.episodes.push(
-      copy
+    const description = prompt(
+      "Episode description:",
+      episode.description || ""
     );
 
-    saveProject();
+    if (description === null) return;
 
-    App.toast(
-      "Episode duplicated"
-    );
-
-    return copy;
-  },
-
-  remove(id) {
-    if (
-      project.episodes.length <= 1
-    ) {
-      alert(
-        "A project must have at least one episode."
-      );
-
-      return;
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
     }
 
-    const episode =
-      this.get(id);
+    episode.description = description;
+    episode.updatedAt = new Date().toISOString();
+
+    saveProject();
+    this.render();
+  },
+
+  duplicate(id = this.currentEpisodeId) {
+    const episode = this.get(id);
 
     if (!episode) return;
 
-    const confirmed =
-      confirm(
-        `Delete "${episode.name}"?`
-      );
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
+    }
 
-    if (!confirmed) {
+    const copy = JSON.parse(JSON.stringify(episode));
+
+    copy.id = "episode_" + Date.now();
+    copy.name = episode.name + " Copy";
+    copy.createdAt = new Date().toISOString();
+    copy.updatedAt = new Date().toISOString();
+
+    copy.scenes = (copy.scenes || []).map(scene => {
+      scene.id = "scene_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+
+      scene.objects = (scene.objects || []).map(object => {
+        object.id =
+          "obj_" +
+          Date.now() +
+          "_" +
+          Math.random().toString(36).slice(2, 7);
+
+        if (Array.isArray(object.keyframes)) {
+          object.keyframes = object.keyframes.map(keyframe => ({
+            ...keyframe,
+            id:
+              "kf_" +
+              Date.now() +
+              "_" +
+              Math.random().toString(36).slice(2, 7)
+          }));
+        }
+
+        return object;
+      });
+
+      return scene;
+    });
+
+    project.episodes.push(copy);
+    this.currentEpisodeId = copy.id;
+
+    saveProject();
+    this.render();
+
+    if (typeof App !== "undefined" && App.toast) {
+      App.toast("Episode duplicated");
+    }
+  },
+
+  remove(id = this.currentEpisodeId) {
+    if (project.episodes.length <= 1) {
+      alert("A project must have at least one episode.");
       return;
     }
 
-    UndoRedo.saveState();
+    const episode = this.get(id);
 
-    project.episodes =
-      project.episodes.filter(
-        item =>
-          item.id !== id
-      );
+    if (!episode) return;
+
+    const confirmed = confirm(
+      `Delete "${episode.name}"? This will delete all scenes in it.`
+    );
+
+    if (!confirmed) return;
+
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
+    }
+
+    project.episodes = project.episodes.filter(
+      item => item.id !== id
+    );
+
+    this.currentEpisodeId =
+      project.episodes[0]?.id || null;
 
     saveProject();
+    this.render();
 
-    const firstEpisode =
-      project.episodes[0];
+    if (typeof Scenes !== "undefined" && Scenes.render) {
+      Scenes.render();
+    }
 
-    if (
-      firstEpisode?.scenes?.length
-    ) {
+    if (typeof Editor !== "undefined") {
       Editor.currentSceneId =
-        firstEpisode.scenes[0].id;
+        project.episodes[0]?.scenes?.[0]?.id || null;
 
-      Editor.loadScene();
+      Editor.render();
     }
 
-    App.toast(
-      "Episode deleted"
-    );
+    if (typeof Timeline !== "undefined") {
+      Timeline.render();
+    }
+
+    if (typeof App !== "undefined" && App.toast) {
+      App.toast("Episode deleted");
+    }
   },
 
-  addScene(episodeId) {
-    const episode =
-      this.get(episodeId);
+  addScene(id = this.currentEpisodeId) {
+    const episode = this.get(id);
 
     if (!episode) return;
 
-    const name =
-      prompt(
-        "Scene name:",
-        `Scene ${
-          episode.scenes.length + 1
-        }`
-      );
-
-    if (
-      !name ||
-      !name.trim()
-    ) {
-      return;
+    if (!Array.isArray(episode.scenes)) {
+      episode.scenes = [];
     }
 
-    UndoRedo.saveState();
+    if (typeof UndoRedo !== "undefined") {
+      UndoRedo.saveState();
+    }
+
+    const sceneNumber = episode.scenes.length + 1;
 
     const scene = {
       id:
         "scene_" +
-        Date.now(),
+        Date.now() +
+        "_" +
+        Math.random().toString(36).slice(2, 7),
 
-      name:
-        name.trim(),
+      name: `Scene ${sceneNumber}`,
 
-      duration:
-        Number(
-          project.settings?.duration
-        ) || 10,
+      duration: 10,
 
       background: {
         type: "color",
@@ -357,60 +338,242 @@ const Episodes = {
 
       dialogue: [],
 
+      titles: [],
+
       camera: {
         x: 50,
         y: 50,
         zoom: 1,
         rotation: 0,
         keyframes: []
+      },
+
+      audio: {
+        tracks: []
       }
     };
 
-    episode.scenes.push(
-      scene
-    );
-
-    episode.updatedAt =
-      new Date().toISOString();
+    episode.scenes.push(scene);
+    episode.updatedAt = new Date().toISOString();
 
     saveProject();
 
-    Editor.currentSceneId =
-      scene.id;
+    if (typeof Editor !== "undefined") {
+      Editor.currentSceneId = scene.id;
+    }
 
-    Editor.loadScene();
+    this.render();
 
-    App.toast(
-      "Scene added"
-    );
+    if (typeof Scenes !== "undefined" && Scenes.render) {
+      Scenes.render();
+    }
+
+    if (typeof Editor !== "undefined") {
+      Editor.render();
+    }
+
+    if (typeof Timeline !== "undefined") {
+      Timeline.render();
+    }
+
+    if (typeof App !== "undefined" && App.toast) {
+      App.toast("Scene added");
+    }
 
     return scene;
   },
 
-  getDuration(id) {
-    const episode =
-      this.get(id);
+  saveCurrent() {
+    const episode = this.getCurrent();
+
+    if (!episode) return;
+
+    episode.updatedAt = new Date().toISOString();
+
+    saveProject();
+
+    if (typeof App !== "undefined" && App.toast) {
+      App.toast("Episode saved");
+    }
+  },
+
+  getDuration(id = this.currentEpisodeId) {
+    const episode = this.get(id);
 
     if (!episode) return 0;
 
-    return (
-      episode.scenes || []
-    ).reduce(
+    return (episode.scenes || []).reduce(
       (total, scene) =>
-        total +
-        (
-          Number(
-            scene.duration
-          ) || 0
-        ),
+        total + Math.max(0, Number(scene.duration) || 0),
       0
     );
   },
 
-  getSceneCount(id) {
-    const episode =
-      this.get(id);
+  getSceneCount(id = this.currentEpisodeId) {
+    const episode = this.get(id);
 
     return episode?.scenes?.length || 0;
+  },
+
+  render() {
+    const list = document.getElementById("episodeList");
+
+    if (!list) return;
+
+    this.ensure();
+
+    list.innerHTML = "";
+
+    project.episodes.forEach(episode => {
+      const card = document.createElement("div");
+
+      card.className =
+        "episode-card" +
+        (episode.id === this.currentEpisodeId
+          ? " active"
+          : "");
+
+      const sceneCount = this.getSceneCount(episode.id);
+      const duration = this.getDuration(episode.id);
+
+      card.innerHTML = `
+        <div class="episode-thumbnail">
+          🎬
+        </div>
+
+        <div class="episode-info">
+          <h3>${this.escape(episode.name)}</h3>
+
+          <p>
+            ${this.escape(
+              episode.description || "No description"
+            )}
+          </p>
+
+          <div class="episode-meta">
+            ${sceneCount} scene${sceneCount === 1 ? "" : "s"}
+            · ${this.formatTime(duration)}
+          </div>
+        </div>
+
+        <div class="episode-actions">
+          <button onclick="Episodes.select('${episode.id}')">
+            Open
+          </button>
+
+          <button onclick="Episodes.rename('${episode.id}')">
+            Rename
+          </button>
+
+          <button onclick="Episodes.duplicate('${episode.id}')">
+            Duplicate
+          </button>
+
+          <button
+            class="danger-btn"
+            onclick="Episodes.remove('${episode.id}')"
+          >
+            Delete
+          </button>
+        </div>
+      `;
+
+      list.appendChild(card);
+    });
+
+    this.renderEditor();
+  },
+
+  renderEditor() {
+    const episode = this.getCurrent();
+
+    if (!episode) return;
+
+    const nameInput = document.getElementById("episodeName");
+
+    if (nameInput) {
+      nameInput.value = episode.name || "";
+    }
+
+    const descriptionInput =
+      document.getElementById("episodeDescription");
+
+    if (descriptionInput) {
+      descriptionInput.value = episode.description || "";
+    }
+
+    const sceneCount =
+      document.getElementById("episodeSceneCount");
+
+    if (sceneCount) {
+      sceneCount.textContent =
+        this.getSceneCount(episode.id);
+    }
+
+    const duration =
+      document.getElementById("episodeDuration");
+
+    if (duration) {
+      duration.textContent =
+        this.formatTime(this.getDuration(episode.id));
+    }
+
+    const episodeCount =
+      document.getElementById("episodeCount");
+
+    if (episodeCount) {
+      episodeCount.textContent =
+        project.episodes.length;
+    }
+  },
+
+  updateCurrentName(value) {
+    const episode = this.getCurrent();
+
+    if (!episode) return;
+
+    if (!String(value).trim()) return;
+
+    episode.name = String(value).trim();
+    episode.updatedAt = new Date().toISOString();
+
+    saveProject();
+    this.render();
+  },
+
+  updateCurrentDescription(value) {
+    const episode = this.getCurrent();
+
+    if (!episode) return;
+
+    episode.description = String(value || "");
+    episode.updatedAt = new Date().toISOString();
+
+    saveProject();
+  },
+
+  formatTime(seconds) {
+    const value = Math.max(
+      0,
+      Number(seconds) || 0
+    );
+
+    const minutes = Math.floor(value / 60);
+    const secs = Math.floor(value % 60);
+
+    return (
+      String(minutes).padStart(2, "0") +
+      ":" +
+      String(secs).padStart(2, "0")
+    );
+  },
+
+  escape(text) {
+    return String(text)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 };
