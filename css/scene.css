@@ -1,0 +1,144 @@
+.scene-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.scene-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.scene-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.scene-card {
+  position: relative;
+  padding: 14px;
+  min-height: 120px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: .15s;
+}
+
+.scene-card:hover {
+  border-color: #3a4d60;
+  transform: translateY(-1px);
+}
+
+.scene-card.active {
+  border-color: #5b9cff;
+  background: #142236;
+}
+
+.scene-thumbnail {
+  height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  background: #18222d;
+  border-radius: 10px;
+  font-size: 28px;
+}
+
+.scene-card h4 {
+  margin: 0 0 5px;
+  font-size: 14px;
+}
+
+.scene-card p {
+  margin: 0;
+  color: #8996a5;
+  font-size: 12px;
+}
+
+.scene-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.scene-card-actions button {
+  padding: 6px 9px;
+  border: 1px solid #2a3744;
+  border-radius: 7px;
+  background: #18222d;
+  color: #fff;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.scene-card-actions .danger-btn {
+  color: #ff7777;
+  border-color: #633333;
+}
+
+.scene-settings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 14px;
+}
+
+.scene-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scene-field label {
+  color: #8996a5;
+  font-size: 12px;
+}
+
+.scene-field input,
+.scene-field select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #2a3744;
+  border-radius: 8px;
+  background: #0d141b;
+  color: #fff;
+}
+
+.scene-background-preview {
+  min-height: 180px;
+  border-radius: 12px;
+  border: 1px solid #202b36;
+  background: #18202b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8996a5;
+}
+
+@media (max-width: 600px) {
+  .scene-settings {
+    grid-template-columns: 1fr;
+  }
+
+  .scene-list {
+    grid-template-columns: 1fr;
+  }
+
+  .scene-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .scene-toolbar button {
+    width: 100%;
+  }
+}
