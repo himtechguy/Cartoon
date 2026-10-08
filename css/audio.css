@@ -1,0 +1,225 @@
+/* AUDIO STUDIO */
+
+.audio-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.audio-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.audio-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.audio-item {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #111820;
+  border: 1px solid #202b36;
+  border-radius: 12px;
+}
+
+.audio-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #18222d;
+  border-radius: 10px;
+  font-size: 20px;
+}
+
+.audio-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audio-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audio-info small {
+  color: #8996a5;
+}
+
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.audio-controls button {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid #2a3744;
+  border-radius: 8px;
+  background: #18222d;
+  color: #fff;
+  cursor: pointer;
+}
+
+.audio-controls button:hover {
+  background: #243240;
+}
+
+.audio-volume {
+  grid-column: 2 / -1;
+}
+
+.audio-volume input {
+  width: 100%;
+  accent-color: #5b9cff;
+}
+
+.voice-recorder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 14px;
+}
+
+.record-button {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: #a33;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.record-button.recording {
+  animation: recordingPulse 1s infinite;
+}
+
+.recording-status {
+  color: #8996a5;
+  font-size: 13px;
+}
+
+.audio-waveform {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 10px;
+  overflow: hidden;
+  background: #0c1218;
+  border: 1px solid #202b36;
+  border-radius: 10px;
+}
+
+.audio-waveform-bar {
+  width: 4px;
+  min-height: 5px;
+  border-radius: 3px;
+  background: #5b9cff;
+}
+
+.audio-track-editor {
+  padding: 16px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 14px;
+}
+
+.audio-track-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid #202b36;
+}
+
+.audio-track-row:last-child {
+  border-bottom: 0;
+}
+
+.audio-track-name {
+  color: #d7dee7;
+  font-size: 13px;
+}
+
+.audio-track-lane {
+  position: relative;
+  height: 32px;
+  background: #18222d;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.audio-clip {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border-radius: 5px;
+  background: #315a80;
+  cursor: grab;
+}
+
+.audio-clip:active {
+  cursor: grabbing;
+}
+
+@keyframes recordingPulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 0.65;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .audio-item {
+    grid-template-columns: 42px 1fr;
+  }
+
+  .audio-controls {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .audio-volume {
+    grid-column: 1 / -1;
+  }
+
+  .audio-track-row {
+    grid-template-columns: 100px 1fr;
+  }
+
+  .audio-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
