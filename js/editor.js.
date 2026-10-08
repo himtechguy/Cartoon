@@ -1,0 +1,520 @@
+const Editor = {
+  selectedObject: null,
+  currentSceneId: null,
+  tool: "select",
+
+  init() {
+    this.bind();
+    this.loadScene();
+  },
+
+  bind() {
+    const sceneSelect = document.getElementById("sceneSelect");
+
+    if (sceneSelect) {
+      sceneSelect.addEventListener("change", () => {
+        this.currentSceneId = sceneSelect.value;
+        this.render();
+      });
+    }
+  },
+
+  getScene() {
+    if (!project.episodes?.length) return null;
+
+    const episode = project.episodes[0];
+
+    if (!episode.scenes?.length) return null;
+
+    let scene = episode.scenes.find(
+      s => s.id === this.currentSceneId
+    );
+
+    if (!scene) {
+      scene = episode.scenes[0];
+      this.currentSceneId = scene.id;
+    }
+
+    return scene;
+  },
+
+  loadScene() {
+    const scene = this.getScene();
+
+    if (!scene) return;
+
+    this.currentSceneId = scene.id;
+
+    const select = document.getElementById("sceneSelect");
+
+    if (select) {
+      select.innerHTML = "";
+
+      project.episodes[0].scenes.forEach(s => {
+        const option = document.createElement("option");
+        option.value = s.id;
+        option.textContent = s.name || "Scene";
+        select.appendChild(option);
+      });
+
+      select.value = scene.id;
+    }
+
+    this.render();
+  },
+
+  render() {
+    const scene = this.getScene();
+    const stage = document.getElementById("stageObjects");
+    const background = document.getElementById("stageBg");
+
+    if (!stage || !scene) return;
+
+    stage.innerHTML = "";
+
+    if (background) {
+      background.style.background =
+        scene.background?.color || "#18202b";
+    }
+
+    if (!scene.objects) {
+      scene.objects = [];
+    }
+
+    scene.objects.forEach(object => {
+      this.renderObject(object);
+    });
+
+    this.renderInspector();
+  },
+
+  renderObject(object) {
+    const container = document.getElementById("stageObjects");
+
+    const element = document.createElement("div");
+
+    element.className = "stage-object";
+
+    if (
+      this.selectedObject &&
+      this.selectedObject.id === object.id
+    ) {
+      element.classList.add("selected");
+    }
+
+    element.dataset.id = object.id;
+
+    const character = project.characters?.find(
+      c => c.id === object.characterId
+    );
+
+    if (object.type === "character") {
+      element.innerHTML = `
+        <div class="object-avatar">
+          ${character?.name === "Takue" ? "🧑🏾" : "👤"}
+        </div>
+        <span>${this.escape(character?.name || "Character")}</span>
+      `;
+    }
+
+    if (object.type === "prop") {
+      element.innerHTML = `
+        <div class="object-avatar">📦</div>
+        <span>${this.escape(object.name || "Prop")}</span>
+      `;
+    }
+
+    if (object.type === "dialogue") {
+      element.innerHTML = `
+        <div class="speech-bubble">
+          ${this.escape(object.text || "...")}
+        </div>
+      `;
+    }
+
+    const x = object.x ?? 50;
+    const y = object.y ?? 50;
+    const scale = object.scale ?? 1;
+    const rotation = object.rotation ?? 0;
+
+    element.style.left = `${x}%`;
+    element.style.top = `${y}%`;
+    element.style.transform =
+      `translate(-50%, -50%) scale(${scale}) rotate(${rotation}deg)`;
+
+    element.addEventListener("pointerdown", event => {
+      event.stopPropagation();
+
+      this.selectObject(object.id);
+
+      if (this.tool === "move") {
+        this.startDrag(event, object, element);
+      }
+    });
+
+    container.appendChild(element);
+  },
+
+  selectObject(id) {
+    const scene = this.getScene();
+
+    if (!scene) return;
+
+    this.selectedObject =
+      scene.objects.find(o => o.id === id) || null;
+
+    this.render();
+  },
+
+  addCharacter(characterId) {
+    const scene = this.getScene();
+
+    if (!scene) return;
+
+    if (!scene.objects) {
+      scene.objects = [];
+    }
+
+    const character =
+      project.characters?.find(c => c.id === characterId) ||
+      project.characters?.[0];
+
+    if (!character) {
+      alert("Create a character first.");
+      return;
+    }
+
+    UndoRedo.saveState();
+
+    const object = {
+      id: "obj_" + Date.now(),
+
+      type: "character",
+
+      characterId: character.id,
+
+      x: 50,
+      y: 50,
+
+      scale: 1,
+
+      rotation: 0,
+
+      pose: character.pose || "standing",
+
+      expression: character.expression || "normal",
+
+      keyframes: []
+    };
+
+    scene.objects.push(object);
+
+    this.selectedObject = object;
+
+    saveProject();
+
+    this.render();
+  },
+
+  addProp(name = "Chair") {
+    const scene = this.getScene();
+
+    if (!scene) return;
+
+    if (!scene.objects) {
+      scene.objects = [];
+    }
+
+    UndoRedo.saveState();
+
+    const object = {
+      id: "obj_" + Date.now(),
+
+      type: "prop",
+
+      name,
+
+      x: 50,
+
+      y: 50,
+
+      scale: 1,
+
+      rotation: 0,
+
+      keyframes: []
+    };
+
+    scene.objects.push(object);
+
+    this.selectedObject = object;
+
+    saveProject();
+
+    this.render();
+  },
+
+  addDialogue() {
+    const scene = this.getScene();
+
+    if (!scene) return;
+
+    const text = prompt(
+      "Enter dialogue:"
+    );
+
+    if (!text || !text.trim()) return;
+
+    if (!scene.objects) {
+      scene.objects = [];
+    }
+
+    UndoRedo.saveState();
+
+    const object = {
+      id: "obj_" + Date.now(),
+
+      type: "dialogue",
+
+      text: text.trim(),
+
+      x: 50,
+
+      y: 25,
+
+      scale: 1,
+
+      rotation: 0,
+
+      start: 0,
+
+      end: 3
+    };
+
+    scene.objects.push(object);
+
+    this.selectedObject = object;
+
+    saveProject();
+
+    this.render();
+  },
+
+  deleteSelected() {
+    const scene = this.getScene();
+
+    if (!scene || !this.selectedObject) return;
+
+    UndoRedo.saveState();
+
+    scene.objects = scene.objects.filter(
+      o => o.id !== this.selectedObject.id
+    );
+
+    this.selectedObject = null;
+
+    saveProject();
+
+    this.render();
+  },
+
+  duplicateSelected() {
+    const scene = this.getScene();
+
+    if (!scene || !this.selectedObject) return;
+
+    UndoRedo.saveState();
+
+    const copy = JSON.parse(
+      JSON.stringify(this.selectedObject)
+    );
+
+    copy.id = "obj_" + Date.now();
+
+    copy.x = Math.min(
+      95,
+      (copy.x ?? 50) + 5
+    );
+
+    scene.objects.push(copy);
+
+    this.selectedObject = copy;
+
+    saveProject();
+
+    this.render();
+  },
+
+  startDrag(event, object, element) {
+    const stage =
+      document.getElementById("stage");
+
+    if (!stage) return;
+
+    const rect =
+      stage.getBoundingClientRect();
+
+    UndoRedo.saveState();
+
+    const move = e => {
+      const x =
+        ((e.clientX - rect.left) /
+          rect.width) *
+        100;
+
+      const y =
+        ((e.clientY - rect.top) /
+          rect.height) *
+        100;
+
+      object.x = Math.max(
+        0,
+        Math.min(100, x)
+      );
+
+      object.y = Math.max(
+        0,
+        Math.min(100, y)
+      );
+
+      element.style.left =
+        `${object.x}%`;
+
+      element.style.top =
+        `${object.y}%`;
+    };
+
+    const stop = () => {
+      document.removeEventListener(
+        "pointermove",
+        move
+      );
+
+      document.removeEventListener(
+        "pointerup",
+        stop
+      );
+
+      saveProject();
+
+      this.render();
+    };
+
+    document.addEventListener(
+      "pointermove",
+      move
+    );
+
+    document.addEventListener(
+      "pointerup",
+      stop
+    );
+  },
+
+  setTool(tool) {
+    this.tool = tool;
+
+    document.querySelectorAll(
+      "[data-tool]"
+    ).forEach(button => {
+      button.classList.toggle(
+        "active",
+        button.dataset.tool === tool
+      );
+    });
+  },
+
+  renderInspector() {
+    const panel =
+      document.getElementById(
+        "inspectorContent"
+      );
+
+    if (!panel) return;
+
+    if (!this.selectedObject) {
+      panel.innerHTML = `
+        <p>Select an object on the stage.</p>
+      `;
+      return;
+    }
+
+    const object =
+      this.selectedObject;
+
+    panel.innerHTML = `
+      <div class="inspector-group">
+        <label>X</label>
+        <input
+          type="number"
+          value="${object.x ?? 50}"
+          onchange="Editor.updateSelected('x', this.value)"
+        >
+      </div>
+
+      <div class="inspector-group">
+        <label>Y</label>
+        <input
+          type="number"
+          value="${object.y ?? 50}"
+          onchange="Editor.updateSelected('y', this.value)"
+        >
+      </div>
+
+      <div class="inspector-group">
+        <label>Scale</label>
+        <input
+          type="number"
+          step="0.1"
+          value="${object.scale ?? 1}"
+          onchange="Editor.updateSelected('scale', this.value)"
+        >
+      </div>
+
+      <div class="inspector-group">
+        <label>Rotation</label>
+        <input
+          type="number"
+          value="${object.rotation ?? 0}"
+          onchange="Editor.updateSelected('rotation', this.value)"
+        >
+      </div>
+
+      <button onclick="Editor.duplicateSelected()">
+        Duplicate
+      </button>
+
+      <button class="danger-btn"
+        onclick="Editor.deleteSelected()">
+        Delete
+      </button>
+    `;
+  },
+
+  updateSelected(property, value) {
+    if (!this.selectedObject) return;
+
+    UndoRedo.saveState();
+
+    const numeric =
+      Number(value);
+
+    this.selectedObject[property] =
+      Number.isFinite(numeric)
+        ? numeric
+        : value;
+
+    saveProject();
+
+    this.render();
+  },
+
+  escape(text) {
+    return String(text)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+};
