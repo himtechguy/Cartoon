@@ -16,6 +16,13 @@ const Timeline = {
   },
 
   getScene() {
+    if (
+      typeof Editor === "undefined" ||
+      !Editor.getScene
+    ) {
+      return null;
+    }
+
     return Editor.getScene();
   },
 
@@ -33,41 +40,39 @@ const Timeline = {
       document.getElementById("timelineForward");
 
     if (play) {
-      play.onclick = () => {
+      play.onclick = () =>
         this.togglePlay();
-      };
     }
 
     if (stop) {
-      stop.onclick = () => {
+      stop.onclick = () =>
         this.stop();
-      };
     }
 
     if (back) {
-      back.onclick = () => {
+      back.onclick = () =>
         this.setTime(
           Math.max(
             0,
             this.currentTime - 1
           )
         );
-      };
     }
 
     if (forward) {
-      forward.onclick = () => {
+      forward.onclick = () =>
         this.setTime(
           Math.min(
             this.duration,
             this.currentTime + 1
           )
         );
-      };
     }
   },
 
   render() {
+    this.loadDuration();
+
     const container =
       document.getElementById(
         "timelineTracks"
@@ -82,6 +87,8 @@ const Timeline = {
     if (!scene) {
       container.innerHTML =
         "<p>No scene selected.</p>";
+
+      this.renderTimeRuler();
       return;
     }
 
@@ -89,16 +96,33 @@ const Timeline = {
       scene.objects = [];
     }
 
-    scene.objects.forEach(object => {
-      this.renderTrack(
-        container,
-        object
-      );
-    });
+    scene.objects.forEach(
+      object => {
+        this.renderObjectTrack(
+          container,
+          object
+        );
+      }
+    );
+
+    this.renderDialogueTracks(
+      container,
+      scene
+    );
+
+    this.renderCameraTrack(
+      container,
+      scene
+    );
+
+    this.renderTitleTracks(
+      container,
+      scene
+    );
 
     this.renderTimeRuler();
-
     this.updateTimeDisplay();
+    this.updatePlayhead();
   },
 
   renderTimeRuler() {
@@ -111,30 +135,34 @@ const Timeline = {
 
     ruler.innerHTML = "";
 
+    const duration =
+      Math.max(1, this.duration);
+
     for (
-      let i = 0;
-      i <= this.duration;
-      i++
+      let second = 0;
+      second <= duration;
+      second++
     ) {
       const mark =
-        document.createElement(
-          "div"
-        );
+        document.createElement("div");
 
       mark.className =
         "time-mark";
 
       mark.style.left =
-        `${(i / this.duration) * 100}%`;
+        `${(second / duration) * 100}%`;
 
       mark.innerHTML =
-        `<span>${i}s</span>`;
+        `<span>${second}s</span>`;
 
       ruler.appendChild(mark);
     }
   },
 
-  renderTrack(container, object) {
+  renderObjectTrack(
+    container,
+    object
+  ) {
     const track =
       document.createElement("div");
 
@@ -147,31 +175,8 @@ const Timeline = {
     name.className =
       "timeline-track-name";
 
-    let label = "Object";
-
-    if (object.type === "character") {
-      const character =
-        project.characters?.find(
-          c => c.id === object.characterId
-        );
-
-      label =
-        character?.name ||
-        "Character";
-    }
-
-    if (object.type === "prop") {
-      label =
-        object.name ||
-        "Prop";
-    }
-
-    if (object.type === "dialogue") {
-      label =
-        "💬 Dialogue";
-    }
-
-    name.textContent = label;
+    name.textContent =
+      this.getObjectName(object);
 
     track.appendChild(name);
 
@@ -186,6 +191,7 @@ const Timeline = {
 
     keyframes.forEach(
       keyframe => {
+
         const marker =
           document.createElement(
             "button"
@@ -195,21 +201,27 @@ const Timeline = {
           "keyframe";
 
         marker.style.left =
-          `${(keyframe.time / this.duration) * 100}%`;
+          `${this.timeToPercent(
+            keyframe.time
+          )}%`;
 
         marker.title =
           `${keyframe.time}s`;
 
-        marker.onclick = () => {
-          this.setTime(
-            keyframe.time
-          );
+        marker.onclick =
+          event => {
 
-          Editor.selectedObject =
-            object;
+            event.stopPropagation();
 
-          Editor.renderInspector();
-        };
+            this.setTime(
+              keyframe.time
+            );
+
+            Editor.selectedObject =
+              object;
+
+            Editor.render();
+          };
 
         lane.appendChild(marker);
       }
@@ -218,6 +230,7 @@ const Timeline = {
     lane.addEventListener(
       "click",
       event => {
+
         const rect =
           lane.getBoundingClientRect();
 
@@ -226,17 +239,262 @@ const Timeline = {
             rect.left) /
           rect.width;
 
-        const time =
-          percent *
-          this.duration;
-
-        this.setTime(time);
+        this.setTime(
+          percent * this.duration
+        );
       }
     );
 
     track.appendChild(lane);
 
     container.appendChild(track);
+  },
+
+  renderDialogueTracks(
+    container,
+    scene
+  ) {
+    const dialogues =
+      scene.dialogue || [];
+
+    dialogues.forEach(
+      dialogue => {
+
+        const track =
+          document.createElement("div");
+
+        track.className =
+          "timeline-track";
+
+        const name =
+          document.createElement("div");
+
+        name.className =
+          "timeline-track-name";
+
+        name.textContent =
+          "💬 Dialogue";
+
+        track.appendChild(name);
+
+        const lane =
+          document.createElement("div");
+
+        lane.className =
+          "timeline-lane";
+
+        const start =
+          Number(dialogue.start) || 0;
+
+        const end =
+          Number(dialogue.end) || start;
+
+        const clip =
+          document.createElement("div");
+
+        clip.className =
+          "timeline-dialogue-clip";
+
+        clip.style.left =
+          `${this.timeToPercent(start)}%`;
+
+        clip.style.width =
+          `${Math.max(
+            0.5,
+            this.timeToPercent(
+              end - start
+            )
+          )}%`;
+
+        clip.textContent =
+          dialogue.text || "Dialogue";
+
+        lane.appendChild(clip);
+
+        track.appendChild(lane);
+
+        container.appendChild(track);
+      }
+    );
+  },
+
+  renderCameraTrack(
+    container,
+    scene
+  ) {
+    const camera =
+      scene.camera;
+
+    if (!camera) return;
+
+    const track =
+      document.createElement("div");
+
+    track.className =
+      "timeline-track";
+
+    const name =
+      document.createElement("div");
+
+    name.className =
+      "timeline-track-name";
+
+    name.textContent =
+      "📷 Camera";
+
+    track.appendChild(name);
+
+    const lane =
+      document.createElement("div");
+
+    lane.className =
+      "timeline-lane";
+
+    const frames =
+      camera.keyframes || [];
+
+    frames.forEach(
+      frame => {
+
+        const marker =
+          document.createElement(
+            "button"
+          );
+
+        marker.className =
+          "keyframe camera-keyframe-marker";
+
+        marker.style.left =
+          `${this.timeToPercent(
+            frame.time
+          )}%`;
+
+        marker.title =
+          `Camera ${frame.time}s`;
+
+        marker.onclick =
+          () => {
+            this.setTime(
+              frame.time
+            );
+          };
+
+        lane.appendChild(marker);
+      }
+    );
+
+    track.appendChild(lane);
+
+    container.appendChild(track);
+  },
+
+  renderTitleTracks(
+    container,
+    scene
+  ) {
+    const titles =
+      scene.titles || [];
+
+    titles.forEach(
+      title => {
+
+        const track =
+          document.createElement("div");
+
+        track.className =
+          "timeline-track";
+
+        const name =
+          document.createElement("div");
+
+        name.className =
+          "timeline-track-name";
+
+        name.textContent =
+          "T Title";
+
+        track.appendChild(name);
+
+        const lane =
+          document.createElement("div");
+
+        lane.className =
+          "timeline-lane";
+
+        const start =
+          Number(title.start) || 0;
+
+        const end =
+          Number(title.end) ||
+          this.duration;
+
+        const clip =
+          document.createElement("div");
+
+        clip.className =
+          "timeline-title-clip";
+
+        clip.style.left =
+          `${this.timeToPercent(start)}%`;
+
+        clip.style.width =
+          `${Math.max(
+            0.5,
+            this.timeToPercent(
+              end - start
+            )
+          )}%`;
+
+        clip.textContent =
+          title.text || "Title";
+
+        lane.appendChild(clip);
+
+        track.appendChild(lane);
+
+        container.appendChild(track);
+      }
+    );
+  },
+
+  getObjectName(object) {
+    if (object.type === "character") {
+      const character =
+        project.characters?.find(
+          character =>
+            character.id ===
+            object.characterId
+        );
+
+      return (
+        character?.name ||
+        "Character"
+      );
+    }
+
+    if (object.type === "prop") {
+      return object.name || "Prop";
+    }
+
+    if (object.type === "dialogue") {
+      return "💬 Dialogue";
+    }
+
+    return "Object";
+  },
+
+  timeToPercent(time) {
+    if (!this.duration) return 0;
+
+    return Math.max(
+      0,
+      Math.min(
+        100,
+        (Number(time) /
+          this.duration) *
+          100
+      )
+    );
   },
 
   setTime(time) {
@@ -250,10 +508,8 @@ const Timeline = {
       );
 
     this.updateTimeDisplay();
-
-    this.applyAnimation();
-
     this.updatePlayhead();
+    this.applyAnimation();
   },
 
   updateTimeDisplay() {
@@ -280,52 +536,239 @@ const Timeline = {
 
     if (!playhead) return;
 
-    const percent =
-      (this.currentTime /
-        this.duration) *
-      100;
-
     playhead.style.left =
-      `${percent}%`;
+      `${this.timeToPercent(
+        this.currentTime
+      )}%`;
   },
 
   applyAnimation() {
     const scene =
       this.getScene();
 
-    if (!scene?.objects) return;
+    if (!scene) return;
 
-    scene.objects.forEach(
-      object => {
-        if (
-          object.type !==
-          "character"
-        ) {
-          return;
-        }
+    /*
+      Important:
+      Do NOT overwrite the saved object's
+      base x/y/scale/etc.
 
-        const state =
-          Animation.getStateAt(
-            object,
-            this.currentTime
+      Animation is rendered temporarily
+      at the current timeline position.
+    */
+
+    const stage =
+      document.getElementById(
+        "stageObjects"
+      );
+
+    if (!stage) return;
+
+    const elements =
+      stage.querySelectorAll(
+        ".stage-object"
+      );
+
+    elements.forEach(
+      element => {
+
+        const id =
+          element.dataset.id;
+
+        const object =
+          scene.objects.find(
+            item => item.id === id
           );
 
-        object.x = state.x;
-        object.y = state.y;
-        object.scale =
-          state.scale;
-        object.rotation =
-          state.rotation;
-        object.opacity =
-          state.opacity;
-        object.pose =
-          state.pose;
-        object.expression =
-          state.expression;
+        if (!object) return;
+
+        let state;
+
+        if (
+          typeof Animation !==
+          "undefined" &&
+          object.keyframes?.length
+        ) {
+          state =
+            Animation.getStateAt(
+              object,
+              this.currentTime
+            );
+        } else {
+          state = {
+            x: object.x ?? 50,
+            y: object.y ?? 50,
+            scale: object.scale ?? 1,
+            rotation:
+              object.rotation ?? 0,
+            opacity:
+              object.opacity ?? 1
+          };
+        }
+
+        element.style.left =
+          `${state.x}%`;
+
+        element.style.top =
+          `${state.y}%`;
+
+        element.style.opacity =
+          state.opacity ?? 1;
+
+        element.style.transform =
+          `translate(-50%, -50%) ` +
+          `scale(${state.scale ?? 1}) ` +
+          `rotate(${state.rotation ?? 0}deg)`;
       }
     );
 
-    Editor.render();
+    if (
+      typeof Camera !== "undefined"
+    ) {
+      Camera.apply(
+        this.currentTime
+      );
+    }
+
+    this.renderActiveDialogue();
+    this.renderActiveTitles();
+  },
+
+  renderActiveDialogue() {
+    const stage =
+      document.getElementById(
+        "stageObjects"
+      );
+
+    if (!stage) return;
+
+    stage
+      .querySelectorAll(
+        ".timeline-live-dialogue"
+      )
+      .forEach(
+        element => element.remove()
+      );
+
+    if (
+      typeof Dialogue ===
+      "undefined"
+    ) {
+      return;
+    }
+
+    const active =
+      Dialogue.getActive(
+        this.currentTime
+      );
+
+    active.forEach(
+      dialogue => {
+
+        const bubble =
+          document.createElement(
+            "div"
+          );
+
+        bubble.className =
+          "timeline-live-dialogue";
+
+        bubble.textContent =
+          dialogue.text || "";
+
+        bubble.style.position =
+          "absolute";
+
+        bubble.style.left =
+          `${dialogue.x ?? 50}%`;
+
+        bubble.style.top =
+          `${dialogue.y ?? 25}%`;
+
+        bubble.style.transform =
+          "translate(-50%, -50%)";
+
+        bubble.style.zIndex =
+          "100";
+
+        stage.appendChild(
+          bubble
+        );
+      }
+    );
+  },
+
+  renderActiveTitles() {
+    const stage =
+      document.getElementById(
+        "stageObjects"
+      );
+
+    if (!stage) return;
+
+    stage
+      .querySelectorAll(
+        ".timeline-live-title"
+      )
+      .forEach(
+        element => element.remove()
+      );
+
+    if (
+      typeof Titles ===
+      "undefined"
+    ) {
+      return;
+    }
+
+    const active =
+      Titles.getActive(
+        this.currentTime
+      );
+
+    active.forEach(
+      title => {
+
+        const element =
+          document.createElement(
+            "div"
+          );
+
+        element.className =
+          "timeline-live-title";
+
+        element.textContent =
+          title.text || "";
+
+        element.style.position =
+          "absolute";
+
+        element.style.left =
+          `${title.x ?? 50}%`;
+
+        element.style.top =
+          `${title.y ?? 50}%`;
+
+        element.style.transform =
+          "translate(-50%, -50%)";
+
+        element.style.zIndex =
+          "110";
+
+        element.style.fontSize =
+          `${title.size ?? 32}px`;
+
+        element.style.fontWeight =
+          title.weight || "bold";
+
+        element.style.color =
+          title.color || "#fff";
+
+        stage.appendChild(
+          element
+        );
+      }
+    );
   },
 
   togglePlay() {
@@ -339,55 +782,52 @@ const Timeline = {
   play() {
     if (this.playing) return;
 
+    if (
+      this.currentTime >=
+      this.duration
+    ) {
+      this.currentTime = 0;
+    }
+
     this.playing = true;
 
     const start =
       performance.now() -
       this.currentTime * 1000;
 
-    this.timer =
-      requestAnimationFrame(
-        frame => {
-          this.tick(
-            frame,
-            start
-          );
-        }
-      );
-  },
+    const frame = now => {
 
-  tick(frame, start) {
-    if (!this.playing) return;
+      if (!this.playing) return;
 
-    this.currentTime =
-      (frame - start) / 1000;
-
-    if (
-      this.currentTime >=
-      this.duration
-    ) {
       this.currentTime =
-        this.duration;
+        (now - start) / 1000;
 
-      this.pause();
+      if (
+        this.currentTime >=
+        this.duration
+      ) {
+        this.currentTime =
+          this.duration;
 
-      return;
-    }
+        this.applyAnimation();
+        this.pause();
 
-    this.updateTimeDisplay();
+        return;
+      }
 
-    this.updatePlayhead();
+      this.updateTimeDisplay();
+      this.updatePlayhead();
+      this.applyAnimation();
 
-    this.applyAnimation();
+      this.timer =
+        requestAnimationFrame(
+          frame
+        );
+    };
 
     this.timer =
       requestAnimationFrame(
-        nextFrame => {
-          this.tick(
-            nextFrame,
-            start
-          );
-        }
+        frame
       );
   },
 
@@ -406,7 +846,11 @@ const Timeline = {
   stop() {
     this.pause();
 
-    this.setTime(0);
+    this.currentTime = 0;
+
+    this.applyAnimation();
+    this.updateTimeDisplay();
+    this.updatePlayhead();
   },
 
   addKeyframe() {
@@ -417,25 +861,33 @@ const Timeline = {
       alert(
         "Select a character or object first."
       );
+
       return;
     }
 
     UndoRedo.saveState();
 
-    Animation.addKeyframe(
-      object,
-      this.currentTime,
-      {
-        x: object.x,
-        y: object.y,
-        scale: object.scale,
-        rotation: object.rotation,
-        opacity: object.opacity,
-        pose: object.pose,
-        expression:
-          object.expression
-      }
-    );
+    if (
+      typeof Animation !==
+      "undefined"
+    ) {
+      Animation.addKeyframe(
+        object,
+        this.currentTime,
+        {
+          x: object.x,
+          y: object.y,
+          scale: object.scale,
+          rotation: object.rotation,
+          opacity: object.opacity,
+          pose: object.pose,
+          expression:
+            object.expression
+        }
+      );
+    }
+
+    saveProject();
 
     this.render();
   },
@@ -448,10 +900,17 @@ const Timeline = {
 
     UndoRedo.saveState();
 
-    Animation.deleteKeyframe(
-      object,
-      this.currentTime
-    );
+    if (
+      typeof Animation !==
+      "undefined"
+    ) {
+      Animation.deleteKeyframe(
+        object,
+        this.currentTime
+      );
+    }
+
+    saveProject();
 
     this.render();
   },
@@ -470,15 +929,11 @@ const Timeline = {
       Math.floor(value % 60);
 
     return (
-      String(minutes).padStart(
-        2,
-        "0"
-      ) +
+      String(minutes)
+        .padStart(2, "0") +
       ":" +
-      String(secs).padStart(
-        2,
-        "0"
-      )
+      String(secs)
+        .padStart(2, "0")
     );
   }
 };
