@@ -1,232 +1,385 @@
 const Props = {
-  library: [
-    "Phone",
-    "Chair",
-    "Table",
-    "Car",
-    "Door",
-    "Bed",
-    "TV",
-    "Cup",
-    "Bag",
-    "Computer",
-    "Food",
-    "Money",
-    "Books"
+  builtIn: [
+    { name: "Phone", icon: "📱" },
+    { name: "Chair", icon: "🪑" },
+    { name: "Table", icon: "🪵" },
+    { name: "Car", icon: "🚗" },
+    { name: "Door", icon: "🚪" },
+    { name: "Bed", icon: "🛏️" },
+    { name: "TV", icon: "📺" },
+    { name: "Cup", icon: "☕" },
+    { name: "Bag", icon: "👜" },
+    { name: "Computer", icon: "💻" },
+    { name: "Food", icon: "🍽️" },
+    { name: "Money", icon: "💵" },
+    { name: "Books", icon: "📚" }
   ],
 
+  custom: [],
+
   init() {
-    this.loadCustom();
+    this.load();
   },
 
-  loadCustom() {
+  load() {
     try {
-      const saved = localStorage.getItem(
-        "cartoon_studio_custom_props"
-      );
+      const saved =
+        localStorage.getItem(
+          "cartoon_studio_custom_props"
+        );
 
-      if (saved) {
-        const custom =
-          JSON.parse(saved);
+      this.custom =
+        saved
+          ? JSON.parse(saved)
+          : [];
 
-        if (Array.isArray(custom)) {
-          this.library = [
-            ...this.library,
-            ...custom.filter(
-              item =>
-                !this.library.includes(item)
-            )
-          ];
-        }
+      if (!Array.isArray(this.custom)) {
+        this.custom = [];
       }
     } catch (error) {
       console.error(
         "Could not load custom props:",
         error
       );
+
+      this.custom = [];
     }
   },
 
-  saveCustom() {
-    const builtIn = [
-      "Phone",
-      "Chair",
-      "Table",
-      "Car",
-      "Door",
-      "Bed",
-      "TV",
-      "Cup",
-      "Bag",
-      "Computer",
-      "Food",
-      "Money",
-      "Books"
-    ];
-
-    const custom =
-      this.library.filter(
-        item =>
-          !builtIn.includes(item)
+  save() {
+    try {
+      localStorage.setItem(
+        "cartoon_studio_custom_props",
+        JSON.stringify(this.custom)
       );
+    } catch (error) {
+      console.error(
+        "Could not save custom props:",
+        error
+      );
+    }
+  },
 
-    localStorage.setItem(
-      "cartoon_studio_custom_props",
-      JSON.stringify(custom)
-    );
+  getAll() {
+    return [
+      ...this.builtIn,
+      ...this.custom
+    ];
+  },
+
+  get(name) {
+    return this.getAll().find(
+      prop => prop.name === name
+    ) || null;
+  },
+
+  add(name, options = {}) {
+    const cleanName =
+      String(name || "").trim();
+
+    if (!cleanName) return null;
+
+    const existing =
+      this.get(cleanName);
+
+    if (existing) {
+      return existing;
+    }
+
+    const prop = {
+      id:
+        "prop_" +
+        Date.now() +
+        "_" +
+        Math.random()
+          .toString(36)
+          .slice(2, 8),
+
+      name: cleanName,
+
+      icon:
+        options.icon ||
+        "📦",
+
+      custom: true,
+
+      createdAt:
+        new Date().toISOString()
+    };
+
+    this.custom.push(prop);
+
+    this.save();
+
+    if (
+      typeof Assets !== "undefined" &&
+      Assets.addProp
+    ) {
+      const alreadyInAssets =
+        Assets.get("props").some(
+          asset =>
+            asset.name === prop.name
+        );
+
+      if (!alreadyInAssets) {
+        Assets.addProp(prop);
+      }
+    }
+
+    return prop;
   },
 
   create() {
-    const name = prompt(
-      "Enter prop name:"
-    );
+    const name =
+      prompt("Enter prop name:");
 
-    if (
-      !name ||
-      !name.trim()
-    ) {
+    if (!name || !name.trim()) {
       return;
     }
 
-    const cleanName =
-      name.trim();
-
-    if (
-      this.library.some(
-        item =>
-          item.toLowerCase() ===
-          cleanName.toLowerCase()
-      )
-    ) {
-      alert(
-        "A prop with that name already exists."
+    const icon =
+      prompt(
+        "Enter an emoji/icon for the prop:",
+        "📦"
       );
-      return;
+
+    const prop =
+      this.add(
+        name.trim(),
+        {
+          icon:
+            icon ||
+            "📦"
+        }
+      );
+
+    if (prop) {
+      if (
+        typeof App !== "undefined" &&
+        App.toast
+      ) {
+        App.toast(
+          `${prop.name} created`
+        );
+      }
     }
+  },
 
-    this.library.push(
-      cleanName
-    );
+  removeCustom(name) {
+    const prop =
+      this.custom.find(
+        item => item.name === name
+      );
 
-    this.saveCustom();
+    if (!prop) return;
+
+    const confirmed =
+      confirm(
+        `Delete custom prop "${name}"?`
+      );
+
+    if (!confirmed) return;
+
+    this.custom =
+      this.custom.filter(
+        item => item.name !== name
+      );
+
+    this.save();
+
+    if (
+      typeof Assets !== "undefined"
+    ) {
+      const assets =
+        Assets.get("props");
+
+      const asset =
+        assets.find(
+          item => item.name === name
+        );
+
+      if (asset) {
+        Assets.remove(
+          "props",
+          asset.id
+        );
+      }
+    }
 
     if (
       typeof App !== "undefined" &&
       App.toast
     ) {
-      App.toast(
-        "Prop created"
-      );
+      App.toast("Prop deleted");
     }
-
-    return cleanName;
   },
 
-  add(name) {
-    const scene =
-      Editor.getScene();
+  addToScene(name) {
+    const prop =
+      this.get(name);
 
-    if (!scene) {
-      alert(
-        "Create a scene first."
+    if (!prop) return;
+
+    if (
+      typeof Editor !== "undefined" &&
+      Editor.addProp
+    ) {
+      Editor.addProp(
+        prop.name
       );
+
       return;
     }
 
-    const propName =
-      name ||
-      this.library[0];
-
-    const object = {
-      id:
-        "prop_" +
-        Date.now(),
-
-      type:
-        "prop",
-
-      name:
-        propName,
-
-      x: 50,
-      y: 50,
-
-      scale: 1,
-
-      rotation: 0,
-
-      opacity: 1,
-
-      keyframes: []
-    };
-
-    UndoRedo.saveState();
-
-    if (!scene.objects) {
-      scene.objects = [];
-    }
-
-    scene.objects.push(
-      object
-    );
-
-    Editor.selectedObject =
-      object;
-
-    saveProject();
-
-    Editor.render();
-
     if (
-      typeof Timeline !== "undefined"
+      typeof Scenes !== "undefined" &&
+      Scenes.addObject
     ) {
-      Timeline.render();
+      Scenes.addObject({
+        id:
+          "obj_" +
+          Date.now(),
+
+        type: "prop",
+
+        name: prop.name,
+
+        icon:
+          prop.icon ||
+          "📦",
+
+        x: 50,
+
+        y: 50,
+
+        scale: 1,
+
+        rotation: 0,
+
+        opacity: 1
+      });
     }
-
-    App.toast(
-      `${propName} added`
-    );
-
-    return object;
   },
 
-  removeCustom(name) {
-    const builtIn = [
-      "Phone",
-      "Chair",
-      "Table",
-      "Car",
-      "Door",
-      "Bed",
-      "TV",
-      "Cup",
-      "Bag",
-      "Computer",
-      "Food",
-      "Money",
-      "Books"
-    ];
-
-    if (
-      builtIn.includes(name)
-    ) {
-      alert(
-        "Built-in props cannot be deleted."
-      );
-      return;
-    }
-
-    this.library =
-      this.library.filter(
-        item => item !== name
+  render(containerId = "propsList") {
+    const container =
+      document.getElementById(
+        containerId
       );
 
-    this.saveCustom();
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    this.getAll().forEach(prop => {
+      const button =
+        document.createElement(
+          "button"
+        );
+
+      button.className =
+        "character-option";
+
+      button.type = "button";
+
+      button.innerHTML = `
+        <span
+          style="
+            font-size:20px;
+            margin-right:6px;
+          "
+        >
+          ${this.escape(
+            prop.icon || "📦"
+          )}
+        </span>
+
+        ${this.escape(
+          prop.name
+        )}
+      `;
+
+      button.addEventListener(
+        "click",
+        () => {
+          this.addToScene(
+            prop.name
+          );
+        }
+      );
+
+      container.appendChild(
+        button
+      );
+    });
   },
 
-  getAll() {
-    return [
-      ...this.library
-    ];
+  exportCustom() {
+    const data =
+      JSON.stringify(
+        this.custom,
+        null,
+        2
+      );
+
+    const blob =
+      new Blob(
+        [data],
+        {
+          type:
+            "application/json"
+        }
+      );
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+    const link =
+      document.createElement(
+        "a"
+      );
+
+    link.href = url;
+
+    link.download =
+      "cartoon-studio-props.json";
+
+    document.body.appendChild(
+      link
+    );
+
+    link.click();
+
+    link.remove();
+
+    URL.revokeObjectURL(
+      url
+    );
+  },
+
+  escape(text) {
+    return String(text)
+      .replaceAll(
+        "&",
+        "&amp;"
+      )
+      .replaceAll(
+        "<",
+        "&lt;"
+      )
+      .replaceAll(
+        ">",
+        "&gt;"
+      )
+      .replaceAll(
+        '"',
+        "&quot;"
+      )
+      .replaceAll(
+        "'",
+        "&#039;"
+      );
   }
 };
