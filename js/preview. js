@@ -1,289 +1,897 @@
 const Preview = {
+  isOpen: false,
   playing: false,
   currentTime: 0,
   timer: null,
+  fps: 30,
 
   init() {
-    this.bind();
+    this.bindControls();
   },
 
-  bind() {
-    const preview = document.getElementById("previewOverlay");
+  bindControls() {
+    const playBtn = document.querySelector("#previewPlayBtn");
+    const stopBtn = document.querySelector("#previewStopBtn");
+    const closeBtn = document.querySelector("#previewCloseBtn");
+    const fullscreenBtn = document.querySelector("#previewFullscreenBtn");
 
-    if (!preview) return;
-
-    const close = preview.querySelector(".preview-close");
-
-    if (close) {
-      close.onclick = () => this.close();
+    if (playBtn && !playBtn.dataset.bound) {
+      playBtn.dataset.bound = "true";
+      playBtn.addEventListener("click", () => this.togglePlay());
     }
+
+    if (stopBtn && !stopBtn.dataset.bound) {
+      stopBtn.dataset.bound = "true";
+      stopBtn.addEventListener("click", () => this.stop());
+    }
+
+    if (closeBtn && !closeBtn.dataset.bound) {
+      closeBtn.dataset.bound = "true";
+      closeBtn.addEventListener("click", () => this.close());
+    }
+
+    if (fullscreenBtn && !fullscreenBtn.dataset.bound) {
+      fullscreenBtn.dataset.bound = "true";
+      fullscreenBtn.addEventListener("click", () => this.fullscreen());
+    }
+  },
+
+  getEpisode() {
+    if (typeof Episodes !== "undefined" &&
+        typeof Episodes.getCurrent === "function") {
+      return Episodes.getCurrent();
+    }
+
+    return project?.episodes?.[0] || null;
+  },
+
+  getScene() {
+    if (typeof getCurrentScene === "function") {
+      return getCurrentScene();
+    }
+
+    const episode = this.getEpisode();
+
+    if (!episode?.scenes?.length) {
+      return null;
+    }
+
+    return episode.scenes[0];
+  },
+
+  getDuration() {
+    const episode = this.getEpisode();
+
+    if (!episode) return 0;
+
+    if (typeof Episodes !== "undefined" &&
+        typeof Episodes.getDuration === "function") {
+      return Number(Episodes.getDuration(episode.id)) || 0;
+    }
+
+    return (episode.scenes || []).reduce(
+      (total, scene) => total + (Number(scene.duration) || 0),
+      0
+    );
   },
 
   open() {
     const overlay =
-      document.getElementById("previewOverlay");
+      document.querySelector("#previewOverlay") ||
+      document.querySelector(".preview-overlay");
 
-    if (!overlay) return;
+    if (!overlay) {
+      this.createOverlay();
+    }
 
-    overlay.classList.add("open");
+    const target =
+      document.querySelector("#previewOverlay") ||
+      document.querySelector(".preview-overlay");
 
+    if (!target) return;
+
+    this.isOpen = true;
     this.currentTime = 0;
     this.playing = false;
 
+    target.classList.add("active");
+    target.style.display = "flex";
+
     this.render();
+    this.updateControls();
   },
 
   close() {
-    this.stop();
+    this.pause();
 
     const overlay =
-      document.getElementById("previewOverlay");
+      document.querySelector("#previewOverlay") ||
+      document.querySelector(".preview-overlay");
 
     if (overlay) {
-      overlay.classList.remove("open");
+      overlay.classList.remove("active");
+      overlay.style.display = "none";
+    }
+
+    this.isOpen = false;
+  },
+
+  togglePlay() {
+    if (this.playing) {
+      this.pause();
+    } else {
+      this.play();
     }
   },
 
   play() {
-    if (this.playing) return;
+    const duration = this.getDuration();
+
+    if (!duration) {
+      this.toast("There is nothing to preview");
+      return;
+    }
+
+    if (this.currentTime >= duration) {
+      this.currentTime = 0;
+    }
 
     this.playing = true;
 
-    const start =
-      performance.now() -
-      this.currentTime * 1000;
+    if (this.timer) {
+      clearInterval(this.timer);
+    }
 
-    const tick = now => {
-      if (!this.playing) return;
-
-      this.currentTime =
-        (now - start) / 1000;
-
-      const duration =
-        Number(project.settings?.duration) || 10;
+    this.timer = setInterval(() => {
+      this.currentTime += 1 / this.fps;
 
       if (this.currentTime >= duration) {
-        this.currentTime = 0;
-        this.playing = false;
+        this.currentTime = duration;
         this.render();
+        this.pause();
         return;
       }
 
       this.render();
+    }, 1000 / this.fps);
 
-      this.timer =
-        requestAnimationFrame(tick);
-    };
-
-    this.timer =
-      requestAnimationFrame(tick);
+    this.updateControls();
+    this.syncAudio();
   },
 
   pause() {
     this.playing = false;
 
     if (this.timer) {
-      cancelAnimationFrame(this.timer);
+      clearInterval(this.timer);
       this.timer = null;
     }
+
+    this.pauseAudio();
+    this.updateControls();
   },
 
   stop() {
     this.pause();
-
     this.currentTime = 0;
+    this.render();
+    this.updateControls();
+  },
+
+  seek(value) {
+    const duration = this.getDuration();
+
+    this.currentTime = this.clamp(
+      Number(value) || 0,
+      0,
+      duration
+    );
 
     this.render();
   },
 
   render() {
-    const scene = Editor.getScene();
-
-    if (!scene) return;
-
     const stage =
-      document.getElementById("previewStage");
+      document.querySelector("#previewStage") ||
+      document.querySelector(".preview-stage");
 
     if (!stage) return;
 
-    stage.innerHTML = "";
+    const episode = this.getEpisode();
 
-    if (scene.background?.color) {
-      stage.style.background =
-        scene.background.color;
+    if (!episode) {
+      stage.innerHTML = `
+        <div class="preview-empty">
+          No episode available.
+        </div>
+      `;
+      return;
     }
 
-    const objects =
-      scene.objects || [];
+    const sceneInfo = this.getSceneAtTime(
+      this.currentTime,
+      episode
+    );
 
-    objects.forEach(object => {
-      const state =
-        object.type === "character"
-          ? Animation.getStateAt(
-              object,
-              this.currentTime
-            )
-          : {
-              x: object.x ?? 50,
-              y: object.y ?? 50,
-              scale: object.scale ?? 1,
-              rotation: object.rotation ?? 0,
-              opacity: object.opacity ?? 1
-            };
+    if (!sceneInfo?.scene) {
+      stage.innerHTML = `
+        <div class="preview-empty">
+          No scene available.
+        </div>
+      `;
+      return;
+    }
 
-      const item =
-        document.createElement("div");
+    const scene = sceneInfo.scene;
+    const localTime = sceneInfo.localTime;
 
-      item.className =
-        "preview-object";
+    const cameraState =
+      typeof Camera !== "undefined" &&
+      typeof Camera.getStateAt === "function"
+        ? Camera.getStateAt(localTime, scene)
+        : {
+            x: 50,
+            y: 50,
+            zoom: 1,
+            rotation: 0
+          };
 
-      item.style.left =
-        `${state.x}%`;
+    stage.style.setProperty(
+      "--preview-camera-x",
+      `${cameraState.x}%`
+    );
 
-      item.style.top =
-        `${state.y}%`;
+    stage.style.setProperty(
+      "--preview-camera-y",
+      `${cameraState.y}%`
+    );
 
-      item.style.opacity =
-        state.opacity ?? 1;
+    stage.style.setProperty(
+      "--preview-camera-zoom",
+      cameraState.zoom
+    );
 
-      item.style.transform =
-        `translate(-50%, -50%)
-         scale(${state.scale ?? 1})
-         rotate(${state.rotation ?? 0}deg)`;
+    stage.style.setProperty(
+      "--preview-camera-rotation",
+      `${cameraState.rotation}deg`
+    );
 
-      if (object.type === "character") {
-        const character =
-          project.characters?.find(
-            c => c.id === object.characterId
-          );
+    const background = scene.background || {
+      color: "#18202b"
+    };
 
-        item.innerHTML = `
-          <div class="preview-character">
-            ${
-              character?.name === "Takue"
-                ? "🧑🏾"
-                : "👤"
-            }
-          </div>
-          <span>
-            ${this.escape(
-              character?.name || "Character"
-            )}
-          </span>
-        `;
-      }
+    stage.style.background =
+      background.image
+        ? `url("${background.image}") center / cover no-repeat`
+        : background.color || "#18202b";
 
-      if (object.type === "prop") {
-        item.innerHTML = `
-          <div class="preview-character">
-            📦
-          </div>
-          <span>
-            ${this.escape(
-              object.name || "Prop"
-            )}
-          </span>
-        `;
-      }
+    const objects = this.getAnimatedObjects(
+      scene,
+      localTime
+    );
 
-      if (object.type === "dialogue") {
-        item.innerHTML = `
-          <div class="preview-bubble">
-            ${this.escape(
-              object.text || ""
-            )}
-          </div>
-        `;
-      }
+    const objectHTML = objects
+      .sort((a, b) => {
+        return (Number(a.zIndex) || 0) -
+               (Number(b.zIndex) || 0);
+      })
+      .map(object => this.renderObject(object))
+      .join("");
 
-      stage.appendChild(item);
-    });
+    const dialogueHTML = this.renderDialogue(
+      scene,
+      localTime
+    );
 
-    this.renderDialogue(stage);
-    this.renderTime();
+    const titleHTML = this.renderTitles(
+      scene,
+      localTime
+    );
+
+    stage.innerHTML = `
+      <div class="preview-camera-frame">
+        ${objectHTML}
+        ${dialogueHTML}
+        ${titleHTML}
+      </div>
+    `;
+
+    this.updateControls();
   },
 
-  renderDialogue(stage) {
-    const active =
-      Dialogue.getActive(
-        this.currentTime
+  getAnimatedObjects(scene, time) {
+    const objects = Array.isArray(scene.objects)
+      ? scene.objects
+      : [];
+
+    return objects.map(object => {
+      const copy = {
+        ...object
+      };
+
+      if (
+        Array.isArray(object.keyframes) &&
+        object.keyframes.length &&
+        typeof Animation !== "undefined" &&
+        typeof Animation.getStateAt === "function"
+      ) {
+        const state = Animation.getStateAt(
+          object.keyframes,
+          time
+        );
+
+        if (state) {
+          Object.assign(copy, state);
+        }
+      } else if (
+        Array.isArray(object.keyframes) &&
+        object.keyframes.length
+      ) {
+        const state = this.interpolateObject(
+          object.keyframes,
+          time
+        );
+
+        Object.assign(copy, state);
+      }
+
+      return copy;
+    });
+  },
+
+  interpolateObject(keyframes, time) {
+    const frames = [...keyframes].sort(
+      (a, b) => Number(a.time) - Number(b.time)
+    );
+
+    if (!frames.length) return {};
+
+    if (time <= Number(frames[0].time)) {
+      return {
+        ...frames[0]
+      };
+    }
+
+    const last = frames[frames.length - 1];
+
+    if (time >= Number(last.time)) {
+      return {
+        ...last
+      };
+    }
+
+    let previous = frames[0];
+    let next = last;
+
+    for (let i = 0; i < frames.length - 1; i++) {
+      if (
+        time >= Number(frames[i].time) &&
+        time <= Number(frames[i + 1].time)
+      ) {
+        previous = frames[i];
+        next = frames[i + 1];
+        break;
+      }
+    }
+
+    const range =
+      Number(next.time) - Number(previous.time);
+
+    const progress = range === 0
+      ? 0
+      : (
+          Number(time) - Number(previous.time)
+        ) / range;
+
+    const value = key => {
+      const a = Number(previous[key]);
+      const b = Number(next[key]);
+
+      if (!Number.isFinite(a) || !Number.isFinite(b)) {
+        return next[key] ?? previous[key];
+      }
+
+      return a + (b - a) * progress;
+    };
+
+    return {
+      x: value("x"),
+      y: value("y"),
+      scale: value("scale"),
+      rotation: value("rotation"),
+      opacity: value("opacity"),
+      pose: this.getDiscreteValue(
+        previous.pose,
+        next.pose,
+        progress
+      ),
+      expression: this.getDiscreteValue(
+        previous.expression,
+        next.expression,
+        progress
+      )
+    };
+  },
+
+  getDiscreteValue(a, b, progress) {
+    return progress < 0.5 ? a : b;
+  },
+
+  renderObject(object) {
+    const x = Number(object.x ?? 50);
+    const y = Number(object.y ?? 50);
+    const scale = Number(object.scale ?? 1);
+    const rotation = Number(object.rotation ?? 0);
+    const opacity = Number(object.opacity ?? 1);
+
+    if (object.type === "character") {
+      return this.renderCharacter(
+        object,
+        x,
+        y,
+        scale,
+        rotation,
+        opacity
+      );
+    }
+
+    if (object.type === "prop") {
+      return this.renderProp(
+        object,
+        x,
+        y,
+        scale,
+        rotation,
+        opacity
+      );
+    }
+
+    return "";
+  },
+
+  renderCharacter(
+    object,
+    x,
+    y,
+    scale,
+    rotation,
+    opacity
+  ) {
+    let character = null;
+
+    if (
+      typeof Characters !== "undefined" &&
+      typeof Characters.get === "function"
+    ) {
+      character = Characters.get(
+        object.characterId
+      );
+    }
+
+    const name =
+      character?.name ||
+      object.name ||
+      "Character";
+
+    const expression =
+      object.expression ||
+      character?.expression ||
+      "normal";
+
+    const pose =
+      object.pose ||
+      character?.pose ||
+      "standing";
+
+    const emoji =
+      this.getCharacterEmoji(
+        expression,
+        pose
       );
 
-    active.forEach(dialogue => {
-      const bubble =
-        document.createElement("div");
+    const flip =
+      object.flipX || object.flipHorizontal
+        ? -1
+        : 1;
 
-      bubble.className =
-        "preview-dialogue";
+    return `
+      <div
+        class="preview-character"
+        style="
+          left:${x}%;
+          top:${y}%;
+          opacity:${opacity};
+          transform:
+            translate(-50%, -50%)
+            scaleX(${flip})
+            scale(${scale})
+            rotate(${rotation}deg);
+        "
+      >
+        <div class="preview-character-emoji">
+          ${emoji}
+        </div>
 
-      bubble.textContent =
-        dialogue.text;
+        <div class="preview-character-name">
+          ${this.escape(name)}
+        </div>
 
-      bubble.style.left =
-        `${dialogue.x ?? 50}%`;
-
-      bubble.style.top =
-        `${dialogue.y ?? 25}%`;
-
-      bubble.style.fontSize =
-        `${dialogue.fontSize ?? 22}px`;
-
-      stage.appendChild(bubble);
-    });
+        <div class="preview-character-state">
+          ${this.escape(pose)}
+          ·
+          ${this.escape(expression)}
+        </div>
+      </div>
+    `;
   },
 
-  renderTime() {
+  renderProp(
+    object,
+    x,
+    y,
+    scale,
+    rotation,
+    opacity
+  ) {
+    const icon = this.getPropIcon(
+      object.name ||
+      object.propName ||
+      object.prop
+    );
+
+    return `
+      <div
+        class="preview-prop"
+        style="
+          left:${x}%;
+          top:${y}%;
+          opacity:${opacity};
+          transform:
+            translate(-50%, -50%)
+            scale(${scale})
+            rotate(${rotation}deg);
+        "
+      >
+        ${icon}
+      </div>
+    `;
+  },
+
+  renderDialogue(scene, time) {
+    const dialogue = Array.isArray(scene.dialogue)
+      ? scene.dialogue
+      : [];
+
+    const active = dialogue.filter(item => {
+      const start = Number(item.start) || 0;
+      const end =
+        item.end === undefined ||
+        item.end === null
+          ? start + 3
+          : Number(item.end);
+
+      return time >= start && time <= end;
+    });
+
+    return active
+      .map(item => {
+        const x = Number(item.x ?? 50);
+        const y = Number(item.y ?? 20);
+
+        const bubble =
+          item.bubble ||
+          item.bubbleType ||
+          "speech";
+
+        return `
+          <div
+            class="preview-dialogue ${this.escapeAttribute(bubble)}"
+            style="
+              left:${x}%;
+              top:${y}%;
+            "
+          >
+            ${this.escape(item.text || "")}
+          </div>
+        `;
+      })
+      .join("");
+  },
+
+  renderTitles(scene, time) {
+    const titles = Array.isArray(scene.titles)
+      ? scene.titles
+      : [];
+
+    return titles
+      .filter(title => {
+        const start = Number(title.start) || 0;
+        const end =
+          title.end === undefined ||
+          title.end === null
+            ? start + 3
+            : Number(title.end);
+
+        return time >= start && time <= end;
+      })
+      .map(title => {
+        const x = Number(title.x ?? 50);
+        const y = Number(title.y ?? 10);
+        const size = Number(title.size ?? 32);
+
+        return `
+          <div
+            class="preview-title"
+            style="
+              left:${x}%;
+              top:${y}%;
+              font-size:${size}px;
+              color:${this.escapeAttribute(
+                title.color || "#ffffff"
+              )};
+              text-align:${this.escapeAttribute(
+                title.align || "center"
+              )};
+              font-weight:${title.bold ? "700" : "400"};
+              font-style:${title.italic ? "italic" : "normal"};
+            "
+          >
+            ${this.escape(title.text || "")}
+          </div>
+        `;
+      })
+      .join("");
+  },
+
+  getSceneAtTime(time, episode) {
+    let elapsed = 0;
+
+    for (const scene of episode.scenes || []) {
+      const duration = Number(scene.duration) || 0;
+
+      if (
+        time >= elapsed &&
+        time <= elapsed + duration
+      ) {
+        return {
+          scene,
+          localTime: time - elapsed
+        };
+      }
+
+      elapsed += duration;
+    }
+
+    const last =
+      episode.scenes?.[episode.scenes.length - 1];
+
+    if (!last) return null;
+
+    return {
+      scene: last,
+      localTime: Number(last.duration) || 0
+    };
+  },
+
+  getCharacterEmoji(expression, pose) {
+    const expressions = {
+      happy: "😄",
+      sad: "😢",
+      angry: "😡",
+      scared: "😨",
+      shocked: "😱",
+      laughing: "😂",
+      crying: "😭",
+      confused: "😕",
+      thinking: "🤔",
+      smirking: "😏",
+      normal: "🙂"
+    };
+
+    const poses = {
+      standing: "🧍",
+      walking: "🚶",
+      running: "🏃",
+      sitting: "🪑",
+      lying: "🛌",
+      talking: "🗣️",
+      pointing: "👉",
+      waving: "👋",
+      dancing: "💃",
+      fighting: "🥊"
+    };
+
+    if (pose === "standing") {
+      return expressions[expression] || "🙂";
+    }
+
+    return poses[pose] || expressions[expression] || "🙂";
+  },
+
+  getPropIcon(name) {
+    const props = {
+      phone: "📱",
+      chair: "🪑",
+      table: "🪵",
+      car: "🚗",
+      door: "🚪",
+      bed: "🛏️",
+      tv: "📺",
+      cup: "☕",
+      bag: "👜",
+      computer: "💻",
+      food: "🍔",
+      money: "💵",
+      books: "📚"
+    };
+
+    const key = String(name || "")
+      .toLowerCase()
+      .replace(/\s+/g, "");
+
+    return props[key] || "📦";
+  },
+
+  createOverlay() {
+    const overlay = document.createElement("div");
+
+    overlay.id = "previewOverlay";
+    overlay.className = "preview-overlay";
+
+    overlay.innerHTML = `
+      <div class="preview-window">
+
+        <div class="preview-header">
+          <strong>🎬 Preview</strong>
+
+          <button
+            id="previewCloseBtn"
+            type="button"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div
+          id="previewStage"
+          class="preview-stage"
+        ></div>
+
+        <div class="preview-controls">
+
+          <button
+            id="previewPlayBtn"
+            type="button"
+          >
+            ▶️
+          </button>
+
+          <button
+            id="previewStopBtn"
+            type="button"
+          >
+            ⏹️
+          </button>
+
+          <input
+            id="previewSeek"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value="0"
+          />
+
+          <span id="previewTime">
+            00:00 / 00:00
+          </span>
+
+          <button
+            id="previewFullscreenBtn"
+            type="button"
+          >
+            ⛶
+          </button>
+
+        </div>
+
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    this.bindControls();
+  },
+
+  updateControls() {
+    const playBtn =
+      document.querySelector("#previewPlayBtn");
+
+    const stopBtn =
+      document.querySelector("#previewStopBtn");
+
+    const seek =
+      document.querySelector("#previewSeek");
+
     const time =
-      document.getElementById(
-        "previewTime"
+      document.querySelector("#previewTime");
+
+    const duration = this.getDuration();
+
+    if (playBtn) {
+      playBtn.textContent =
+        this.playing ? "⏸️" : "▶️";
+    }
+
+    if (stopBtn) {
+      stopBtn.disabled =
+        this.currentTime <= 0;
+    }
+
+    if (seek) {
+      seek.max = String(duration || 1);
+      seek.value = String(
+        Math.min(
+          this.currentTime,
+          duration || 1
+        )
       );
+
+      if (!seek.dataset.bound) {
+        seek.dataset.bound = "true";
+
+        seek.addEventListener("input", event => {
+          this.seek(event.target.value);
+        });
+      }
+    }
 
     if (time) {
-      const duration =
-        Number(project.settings?.duration) || 10;
-
       time.textContent =
-        `${this.formatTime(
-          this.currentTime
-        )} / ${this.formatTime(
-          duration
-        )}`;
+        `${this.formatTime(this.currentTime)} / ` +
+        `${this.formatTime(duration)}`;
     }
   },
 
-  seek(value) {
-    this.currentTime =
-      Number(value) || 0;
+  async fullscreen() {
+    const target =
+      document.querySelector("#previewStage") ||
+      document.querySelector(".preview-stage");
 
-    this.render();
+    if (!target) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await target.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (error) {
+      console.warn(
+        "Fullscreen unavailable:",
+        error
+      );
+    }
+  },
+
+  syncAudio() {
+    // Audio playback is handled by AudioManager.
+    if (
+      typeof AudioManager !== "undefined" &&
+      typeof AudioManager.render === "function"
+    ) {
+      AudioManager.render();
+    }
+  },
+
+  pauseAudio() {
+    if (
+      typeof AudioManager !== "undefined" &&
+      typeof AudioManager.pause === "function"
+    ) {
+      AudioManager.pause();
+    }
   },
 
   formatTime(seconds) {
-    const value =
-      Math.max(
-        0,
-        Number(seconds) || 0
-      );
-
-    const minutes =
-      Math.floor(value / 60);
-
-    const secs =
-      Math.floor(value % 60);
-
-    return (
-      String(minutes).padStart(2, "0") +
-      ":" +
-      String(secs).padStart(2, "0")
-    );
-  },
-
-  escape(text) {
-    return String(text)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
-};
+    const total =
