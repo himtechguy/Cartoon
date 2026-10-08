@@ -1,0 +1,165 @@
+.voice-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.voice-recorder-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 16px;
+}
+
+.voice-recorder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.voice-recorder-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.voice-status {
+  color: #8996a5;
+  font-size: 12px;
+}
+
+.voice-record-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.voice-record-button {
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 50%;
+  background: #a33;
+  color: #fff;
+  font-size: 21px;
+  cursor: pointer;
+}
+
+.voice-record-button:hover {
+  filter: brightness(1.15);
+}
+
+.voice-record-button.recording {
+  animation: voicePulse 1s infinite;
+}
+
+.voice-timer {
+  color: #fff;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.voice-character-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #2a3744;
+  border-radius: 9px;
+  background: #0d141b;
+  color: #fff;
+}
+
+.voice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.voice-item {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #10171f;
+  border: 1px solid #202b36;
+  border-radius: 12px;
+}
+
+.voice-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #18222d;
+  border-radius: 10px;
+  font-size: 20px;
+}
+
+.voice-info {
+  min-width: 0;
+}
+
+.voice-info strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-info small {
+  display: block;
+  margin-top: 4px;
+  color: #8996a5;
+  font-size: 11px;
+}
+
+.voice-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.voice-actions button {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid #2a3744;
+  border-radius: 8px;
+  background: #18222d;
+  color: #fff;
+  cursor: pointer;
+}
+
+.voice-actions .danger-btn {
+  color: #ff7777;
+  border-color: #633333;
+}
+
+.voice-empty {
+  padding: 35px 20px;
+  text-align: center;
+  color: #8996a5;
+  background: #10171f;
+  border: 1px dashed #2a3744;
+  border-radius: 14px;
+}
+
+@keyframes voicePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 600px) {
+  .voice-item {
+    grid-template-columns: 42px 1fr;
+  }
+
+  .voice-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
